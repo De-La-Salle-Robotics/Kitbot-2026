@@ -15,6 +15,7 @@ import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.FollowPathCommand;
 
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -41,6 +42,7 @@ public class RobotContainer {
             .withDeadband(MaxSpeed * 0.1).withRotationalDeadband(MaxAngularRate * 0.1) // Add a 10% deadband
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage); // Use open-loop control for drive motors
     private final SwerveRequest.SwerveDriveBrake brake = new SwerveRequest.SwerveDriveBrake();
+    private final SwerveRequest.SwerveDriveBrake speedChange = new SwerveRequest.SwerveDriveBrake();
     private final SwerveRequest.RobotCentric forwardStraight = new SwerveRequest.RobotCentric()
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage);
     private final SwerveRequest.FieldCentricFacingAngle targetHub = new SwerveRequest.FieldCentricFacingAngle()
@@ -92,7 +94,7 @@ public class RobotContainer {
             drivetrain.applyRequest(() ->
                 drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
                     .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
-                    .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left)
+                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left) 
             )
         );
 
@@ -112,9 +114,9 @@ public class RobotContainer {
                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate); // Drive counterclockwise with negative X (left)
             } else {
                 /* Use the hub target to determine where to aim */
-                return targetHub.withTargetDirection(vision.getHeadingToHubFieldRelative())
+                  return targetHub.withTargetDirection(vision.getHeadingToHubFieldRelative())
                     .withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
-                    .withVelocityY(-joystick.getLeftX() * MaxSpeed); // Drive left with negative X (left)
+                    .withVelocityY(-joystick.getLeftX() * MaxSpeed); // Drive left with negative X (left) 
             }
         }
         
@@ -144,6 +146,28 @@ public class RobotContainer {
             .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
         );
 
+        // make x + y button change speed
+        joystick.y().whileTrue(
+            Commands.runOnce(()->{
+                if (MaxSpeed > 2.5) {
+                   MaxSpeed = 2.5; 
+                } else{
+                    MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond);
+                }
+                
+            })
+        );
+        joystick.x().onTrue(
+            Commands.runOnce(()->{
+                   MaxSpeed = 2.5; 
+                } 
+        ));
+        joystick.x().onFalse(
+            Commands.runOnce(()->{
+                   MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); 
+                } 
+        ));
+
         drivetrain.registerTelemetry(logger::telemeterize);
     }
 
@@ -160,6 +184,8 @@ public class RobotContainer {
 
     public void periodic() {
         vision.periodic();
+
+        SmartDashboard.putNumber("Max Speed", MaxSpeed);
     }
 
     public void simulationPeriodic() {
