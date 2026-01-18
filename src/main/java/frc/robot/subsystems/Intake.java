@@ -56,8 +56,8 @@ public class Intake extends SubsystemBase {
     private static final double kGearRatio = 1;
 
     /* leader and follower motors */
-    private final CANBus kCANBus = new CANBus("*");
-    private final TalonFX TopIndex = new TalonFX(21, kCANBus);
+    private final CANBus kCANBus = new CANBus("canivore");
+    private final TalonFX TopIndex = new TalonFX(15, kCANBus);
 
     /* device status signals */
     private final StatusSignal<AngularVelocity> TopIndexVelocity = TopIndex.getVelocity(false);

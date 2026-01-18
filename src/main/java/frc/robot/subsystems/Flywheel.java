@@ -41,8 +41,8 @@ public class Flywheel extends SubsystemBase {
     public enum FlywheelSetpoint {
         Intake(RotationsPerSecond.of(80)),
         Outtake(RotationsPerSecond.of(-80)),
-        Near(RotationsPerSecond.of(70)),
-        Far(RotationsPerSecond.of(80));
+        Near(RotationsPerSecond.of(60)),
+        Far(RotationsPerSecond.of(70));
 
         /** The velocity target of the setpoint. */
         public final AngularVelocity leaderMotorTarget;
@@ -57,8 +57,8 @@ public class Flywheel extends SubsystemBase {
     private static final double kGearRatio = 1;
 
     /* leader and follower motors */
-    private final CANBus kCANBus = new CANBus("*");
-    private final TalonFX leaderMotor = new TalonFX(10, kCANBus);
+    private final CANBus kCANBus = new CANBus("canivore");
+    private final TalonFX leaderMotor = new TalonFX(51, kCANBus);
 
     /* device status signals */
     private final StatusSignal<AngularVelocity> leaderMotorVelocity = leaderMotor.getVelocity(false);
