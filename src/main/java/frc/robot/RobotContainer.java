@@ -24,6 +24,7 @@ import edu.wpi.first.wpilibj2.command.Commands;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
+import frc.robot.controllers.CommandGameSirT3Lite;
 import frc.robot.generated.TunerConstants;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Flywheel;
@@ -52,7 +53,7 @@ public class RobotContainer {
 
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
-    private final CommandXboxController joystick = new CommandXboxController(0);
+    private final CommandGameSirT3Lite joystick = new CommandGameSirT3Lite(0);
 
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     public final Flywheel flywheel = new Flywheel();
@@ -130,11 +131,11 @@ public class RobotContainer {
         );
 
         // Bind the start button to set the field-centric forward in case it's lost for whatever reason.
-        joystick.start().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
+        joystick.screenshot().onTrue(drivetrain.runOnce(drivetrain::seedFieldCentric));
 
         // Bind left bumper/trigger to our intake/outtake
-        joystick.leftBumper().whileTrue(intake.setTarget(()->IntakeSetpoint.Intake).alongWith(flywheel.setTarget(()->FlywheelSetpoint.Intake)));
-        joystick.leftTrigger().whileTrue(intake.setTarget(()->IntakeSetpoint.Outtake).alongWith(flywheel.setTarget(()->FlywheelSetpoint.Outtake)));
+        joystick.leftTrigger().whileTrue(intake.setTarget(()->IntakeSetpoint.Intake).alongWith(flywheel.setTarget(()->FlywheelSetpoint.Intake)));
+        joystick.capture().whileTrue(intake.setTarget(()->IntakeSetpoint.Outtake).alongWith(flywheel.setTarget(()->FlywheelSetpoint.Outtake)));
 
         // Bind right bumper/trigger to our near/far shots
         joystick.rightBumper().whileTrue(
@@ -157,12 +158,12 @@ public class RobotContainer {
                 
             })
         );
-        joystick.x().onTrue(
+        joystick.leftBumper().onTrue(
             Commands.runOnce(()->{
                    MaxSpeed = 2.5; 
                 } 
         ));
-        joystick.x().onFalse(
+        joystick.leftBumper().onFalse(
             Commands.runOnce(()->{
                    MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); 
                 } 

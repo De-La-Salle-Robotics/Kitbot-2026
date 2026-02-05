@@ -41,8 +41,8 @@ public class Flywheel extends SubsystemBase {
     public enum FlywheelSetpoint {
         Intake(RotationsPerSecond.of(80)),
         Outtake(RotationsPerSecond.of(-80)),
-        Near(RotationsPerSecond.of(60)),
-        Far(RotationsPerSecond.of(70));
+        Near(RotationsPerSecond.of(48)),
+        Far(RotationsPerSecond.of(100));
 
         /** The velocity target of the setpoint. */
         public final AngularVelocity leaderMotorTarget;
