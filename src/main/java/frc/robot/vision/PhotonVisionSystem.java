@@ -110,7 +110,7 @@ public class PhotonVisionSystem {
         if (Robot.isSimulation()) {
             // Create the vision system simulation which handles cameras and targets on the field.
             visionSim = new VisionSystemSim("main");
-            // Add all the AprilTags inside the tag layout as visible targets to this simulated field.
+            // Add all the AprilTags inside the tag layout as v+isible targets to this simulated field.
             visionSim.addAprilTags(TagLayout);
             // Create simulated camera properties. These can be set to mimic your actual camera.
             var cameraProp = new SimCameraProperties();

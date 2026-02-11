@@ -28,7 +28,8 @@ public class Telemetry {
      */
     public Telemetry(double maxSpeed) {
         MaxSpeed = maxSpeed;
-        SignalLogger.start();
+        // SignalLogger.start();
+        SignalLogger.stop();
 
         /* Set up the module state Mechanism2d telemetry */
         for (int i = 0; i < 4; ++i) {

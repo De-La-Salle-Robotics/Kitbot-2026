@@ -13,7 +13,7 @@ import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.CoastOut;
-import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -41,7 +41,7 @@ public class Flywheel extends SubsystemBase {
     public enum FlywheelSetpoint {
         Intake(RotationsPerSecond.of(80)),
         Outtake(RotationsPerSecond.of(-80)),
-        Near(RotationsPerSecond.of(48)),
+        Near(RotationsPerSecond.of(44)),
         Far(RotationsPerSecond.of(100));
 
         /** The velocity target of the setpoint. */
@@ -65,7 +65,7 @@ public class Flywheel extends SubsystemBase {
     private final StatusSignal<Current> leaderMotorTorqueCurrent = leaderMotor.getTorqueCurrent(false);
 
     /* controls used by the leader motors */
-    private final VelocityVoltage leaderMotorSetpointRequest = new VelocityVoltage(0);
+    private final VelocityTorqueCurrentFOC leaderMotorSetpointRequest = new VelocityTorqueCurrentFOC(0);
     private final CoastOut coastRequest = new CoastOut();
 
     /* simulation */
@@ -106,12 +106,17 @@ public class Flywheel extends SubsystemBase {
         )
         .withSlot0(
             motorTalonFXInitialConfigs.Slot0.clone()
-                .withKP(0.8)
+                .withKP(12)
                 .withKI(0)
                 .withKD(0)
-                .withKS(0)
-                .withKV(0.12)
+                .withKS(7)
+                .withKV(0.1)
                 .withKA(0)
+        )
+        .withTorqueCurrent(
+            motorTalonFXInitialConfigs.TorqueCurrent.clone()
+                .withPeakForwardTorqueCurrent(120)
+                .withPeakReverseTorqueCurrent(-20)
         );
 
     public Flywheel() {

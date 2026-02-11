@@ -26,6 +26,7 @@ import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 import frc.robot.controllers.CommandGameSirT3Lite;
 import frc.robot.generated.TunerConstants;
+import frc.robot.subsystems.Climb;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Flywheel;
 import frc.robot.subsystems.Intake;
@@ -54,10 +55,11 @@ public class RobotContainer {
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
     private final CommandGameSirT3Lite joystick = new CommandGameSirT3Lite(0);
-
+    private final CommandXboxController joystick2 = new CommandXboxController(1);
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     public final Flywheel flywheel = new Flywheel();
     public final Intake intake = new Intake();
+    public final Climb climb = new Climb();
     public final PhotonVisionSystem vision = new PhotonVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose);
 
     private final AngularVelocity SpinUpThreshold = RotationsPerSecond.of(3); // Tune to increase accuracy while not sacrificing throughput
@@ -98,6 +100,15 @@ public class RobotContainer {
                      .withRotationalRate(-joystick.getRightX() * MaxAngularRate) // Drive counterclockwise with negative X (left) 
             )
         );
+
+        climb.setDefaultCommand(climb.run(()-> {
+            double climbY = joystick2.getLeftY();
+            if (climbY > 0.1 || climbY < -0.1 ) {
+                climb.driveOpenLoop(climbY);
+            } else{
+                climb.driveOpenLoop(0);
+            }
+        }));
 
         // Idle while the robot is disabled. This ensures the configured
         // neutral mode is applied to the drive motors while disabled.
@@ -145,6 +156,15 @@ public class RobotContainer {
         joystick.rightTrigger().whileTrue(
             flywheel.setTarget(()->FlywheelSetpoint.Far) // First spin up the flywheel
             .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
+        );
+        // Bind right bumper/trigger to prep flywheeel(operator)
+         joystick2.rightBumper().whileTrue(
+            flywheel.setTarget(()->FlywheelSetpoint.Near) //spin up the flywheel
+           // .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
+        );
+        joystick2.rightTrigger().whileTrue(
+            flywheel.setTarget(()->FlywheelSetpoint.Far) // spin up the flywheel
+          //  .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
         );
 
         // make x + y button change speed
