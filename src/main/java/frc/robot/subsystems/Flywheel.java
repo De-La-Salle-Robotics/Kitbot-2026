@@ -3,6 +3,7 @@ package frc.robot.subsystems;
 
 import static edu.wpi.first.units.Units.*;
 
+import java.util.function.DoubleSupplier;
 import java.util.function.Supplier;
 
 import com.ctre.phoenix6.BaseStatusSignal;
@@ -20,6 +21,7 @@ import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.sim.ChassisReference;
 import com.ctre.phoenix6.sim.TalonFXSimState;
 
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
@@ -118,6 +120,15 @@ public class Flywheel extends SubsystemBase {
                 .withPeakForwardTorqueCurrent(120)
                 .withPeakReverseTorqueCurrent(-20)
         );
+        
+
+    private final InterpolatingDoubleTreeMap table;
+    {{
+        table = new InterpolatingDoubleTreeMap();
+        table.put(0.0, 44.0); //distance(in) then RPS
+        table.put(84.0, 240.0);
+        table.put(96.0, 280.0);// all made up
+    }};
 
     public Flywheel() {
         for (int i = 0; i < kNumConfigAttempts; ++i) {
@@ -166,6 +177,14 @@ public class Flywheel extends SubsystemBase {
         return run(() -> {
             FlywheelSetpoint t = target.get();
             leaderMotorSetpointRequest.withVelocity(t.leaderMotorTarget);
+            leaderMotor.setControl(leaderMotorSetpointRequest);
+        });
+    }
+
+    public Command setDistance(DoubleSupplier distanceSupplier) {
+        return run (() -> {
+            double target = table.get(distanceSupplier.getAsDouble());
+            leaderMotorSetpointRequest.withVelocity(target);
             leaderMotor.setControl(leaderMotorSetpointRequest);
         });
     }

@@ -6,6 +6,7 @@ import static edu.wpi.first.units.Units.*;
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.MotorOutputConfigs;
+import com.ctre.phoenix6.configs.SoftwareLimitSwitchConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.DutyCycleOut;
 import com.ctre.phoenix6.hardware.TalonFX;
@@ -26,6 +27,13 @@ public class Climb extends SubsystemBase{
         .withMotorOutput(
             new MotorOutputConfigs()
                 .withNeutralMode(NeutralModeValue.Brake)
+        ).withCurrentLimits(
+            new CurrentLimitsConfigs()
+                .withStatorCurrentLimit(Amps.of(20))
+        ).withSoftwareLimitSwitch(
+            new SoftwareLimitSwitchConfigs()
+                .withForwardSoftLimitThreshold(90)
+                .withForwardSoftLimitEnable(true)
         );
 
      public Climb() {
@@ -33,6 +41,7 @@ public class Climb extends SubsystemBase{
             var status = Climber.getConfigurator().apply(motorTalonFXInitialConfigs);
             if (status.isOK()) break;
         }
+        Climber.setPosition(0);
     }
 
     public void driveOpenLoop(double dutyCycle) {

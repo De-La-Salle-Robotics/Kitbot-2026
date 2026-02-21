@@ -6,6 +6,7 @@ package frc.robot;
 
 import static edu.wpi.first.units.Units.*;
 
+import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.swerve.SwerveModule.DriveRequestType;
 import com.ctre.phoenix6.swerve.SwerveRequest.ForwardPerspectiveValue;
 import com.ctre.phoenix6.swerve.SwerveRequest;
@@ -15,6 +16,7 @@ import com.pathplanner.lib.auto.NamedCommands;
 import com.pathplanner.lib.commands.FollowPathCommand;
 
 import edu.wpi.first.units.measure.AngularVelocity;
+import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.wpilibj.Joystick;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
@@ -32,8 +34,10 @@ import frc.robot.subsystems.Flywheel;
 import frc.robot.subsystems.Intake;
 import frc.robot.subsystems.Flywheel.FlywheelSetpoint;
 import frc.robot.subsystems.Intake.IntakeSetpoint;
+import frc.robot.vision.LimelightVisionSystem;
 import frc.robot.vision.LoggableRobotPose;
-import frc.robot.vision.PhotonVisionSystem;
+//import frc.robot.vision.Commands.*;
+//import frc.robot.vision.AutoAlign;
 
 public class RobotContainer {
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -52,6 +56,7 @@ public class RobotContainer {
             .withDriveRequestType(DriveRequestType.OpenLoopVoltage)
             .withForwardPerspective(ForwardPerspectiveValue.OperatorPerspective);
 
+
     private final Telemetry logger = new Telemetry(MaxSpeed);
 
     private final CommandGameSirT3Lite joystick = new CommandGameSirT3Lite(0);
@@ -60,11 +65,25 @@ public class RobotContainer {
     public final Flywheel flywheel = new Flywheel();
     public final Intake intake = new Intake();
     public final Climb climb = new Climb();
-    public final PhotonVisionSystem vision = new PhotonVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose);
+    public final LimelightVisionSystem vision = new LimelightVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose);
+    //public final 
 
     private final AngularVelocity SpinUpThreshold = RotationsPerSecond.of(3); // Tune to increase accuracy while not sacrificing throughput
     /* The flywheel is ready to shoot when it's near the target or when the driver overrides it with the X button */
     private final Trigger isFlywheelReadyToShoot = flywheel.getTriggerWhenNearTarget(SpinUpThreshold).or(joystick.x());
+
+    Trigger downButton = new Trigger(
+        () ->  joystick.povDown().getAsBoolean() && !joystick.povLeft().getAsBoolean() && !joystick.povRight().getAsBoolean()
+    );
+    Trigger upButton = new Trigger(
+        () ->  joystick.povUp().getAsBoolean() && !joystick.povLeft().getAsBoolean() && !joystick.povRight().getAsBoolean()
+    );
+    Trigger leftButton = new Trigger(
+        () ->  joystick.povLeft().getAsBoolean() && !joystick.povUp().getAsBoolean() && !joystick.povDown().getAsBoolean()
+    );
+    Trigger rightButton = new Trigger(
+        () ->  joystick.povRight().getAsBoolean() && !joystick.povUp().getAsBoolean() && !joystick.povDown().getAsBoolean()
+    );
 
     /* Path follower */
     private final SendableChooser<Command> autoChooser;
@@ -79,6 +98,7 @@ public class RobotContainer {
         NamedCommands.registerCommand("Stop Intake", intake.coastIntake().alongWith(flywheel.coastFlywheel()));
         NamedCommands.registerCommand("Intake Fuel", intake.setTarget(() -> IntakeSetpoint.Intake).alongWith(flywheel.setTarget(()-> FlywheelSetpoint.Intake)));
         NamedCommands.registerCommand("Outtake Fuel", intake.setTarget(() -> IntakeSetpoint.Outtake).alongWith(flywheel.setTarget(()-> FlywheelSetpoint.Outtake)));
+       // NamedCommands.registerCommand("Go to Pos", camera.setGoal(() -> ShootPoints.Middle).andThen(AutoAlign(() -> )));
 
         autoChooser = AutoBuilder.buildAutoChooser("Only Score");
         SmartDashboard.putData("Auto Mode", autoChooser);
@@ -103,7 +123,7 @@ public class RobotContainer {
 
         climb.setDefaultCommand(climb.run(()-> {
             double climbY = joystick2.getLeftY();
-            if (climbY > 0.1 || climbY < -0.1 ) {
+            if (climbY > 0.1 || climbY < -0.1) {
                 climb.driveOpenLoop(climbY);
             } else{
                 climb.driveOpenLoop(0);
@@ -120,25 +140,63 @@ public class RobotContainer {
         joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
         joystick.b().whileTrue(drivetrain.applyRequest(()-> {
             if (!vision.isHubTargetValid()) {
+                System.out.println("Not Valid target");
                 /* Do typical field-centric driving since we don't have a target */
                 return drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
                     .withVelocityY(-joystick.getLeftX() * MaxSpeed) // Drive left with negative X (left)
                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate); // Drive counterclockwise with negative X (left)
             } else {
+                System.out.println("Valid target");
                 /* Use the hub target to determine where to aim */
                   return targetHub.withTargetDirection(vision.getHeadingToHubFieldRelative())
                     .withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
                     .withVelocityY(-joystick.getLeftX() * MaxSpeed); // Drive left with negative X (left) 
             }
-        }
-        
+        }).alongWith(
+            flywheel.coastFlywheel()
+            // flywheel.setDistance(() -> {
+            //     return SwerveUtils.findDistanceToTarget(drivetrain.getState().Pose);
+            // })
         ));
 
-        joystick.povUp().whileTrue(drivetrain.applyRequest(() ->
-            forwardStraight.withVelocityX(0.5).withVelocityY(0))
+        final double StraightSpeed = 1;
+
+        // joystick.povRight().whileTrue(drivetrain.applyRequest(() -> 
+        //     forwardStraight.withVelocityX(0).withVelocityY(0.5))
+        // );
+        rightButton.whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(0).withVelocityY(-StraightSpeed))
         );
-        joystick.povDown().whileTrue(drivetrain.applyRequest(() ->
-            forwardStraight.withVelocityX(-0.5).withVelocityY(0))
+        // joystick.povLeft().whileTrue(drivetrain.applyRequest(() -> 
+        //     forwardStraight.withVelocityX(0).withVelocityY(-0.5))
+        // );
+        leftButton.whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(0).withVelocityY(StraightSpeed))
+        );
+        // joystick.povUp().whileTrue(drivetrain.applyRequest(() ->
+        //     forwardStraight.withVelocityX(0.5).withVelocityY(0))
+        // );
+        upButton.whileTrue(drivetrain.applyRequest(() ->
+            forwardStraight.withVelocityX(StraightSpeed).withVelocityY(0))
+        );
+        // joystick.povDown().whileTrue(drivetrain.applyRequest(() -> 
+        //     forwardStraight.withVelocityX(-0.5).withVelocityY(0))  
+        // );
+        downButton.whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(-StraightSpeed).withVelocityY(0))  
+        );
+
+         joystick.povDownLeft().whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(-StraightSpeed).withVelocityY(StraightSpeed))
+        );
+         joystick.povDownRight().whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(-StraightSpeed).withVelocityY(-StraightSpeed))
+        );
+         joystick.povUpLeft().whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(StraightSpeed).withVelocityY(StraightSpeed))
+        );
+         joystick.povUpRight().whileTrue(drivetrain.applyRequest(() -> 
+            forwardStraight.withVelocityX(StraightSpeed).withVelocityY(-StraightSpeed))
         );
 
         // Bind the start button to set the field-centric forward in case it's lost for whatever reason.
@@ -158,11 +216,11 @@ public class RobotContainer {
             .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
         );
         // Bind right bumper/trigger to prep flywheeel(operator)
-         joystick2.rightBumper().whileTrue(
+         joystick2.rightBumper().toggleOnTrue(
             flywheel.setTarget(()->FlywheelSetpoint.Near) //spin up the flywheel
            // .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
         );
-        joystick2.rightTrigger().whileTrue(
+        joystick2.rightTrigger().toggleOnTrue(
             flywheel.setTarget(()->FlywheelSetpoint.Far) // spin up the flywheel
           //  .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
         );
@@ -199,6 +257,7 @@ public class RobotContainer {
 
     public void consumePhotonVisionMeasurement(LoggableRobotPose pose) {
         /* Super simple, should modify to support variable standard deviations */
+        // System.out.println("Pose: " + pose.estimatedPose.getX() + " - " + pose.estimatedPose.getY() + " - " + pose.estimatedPose.getZ());
         drivetrain.addVisionMeasurement(pose.estimatedPose.toPose2d(), pose.timestampSeconds);
     }
 
@@ -213,7 +272,7 @@ public class RobotContainer {
         var drivetrainPose = drivetrain.m_simOdometry.getPoseMeters();
         vision.simPeriodic(drivetrainPose);
 
-        var debugField = vision.getSimDebugField();
-        debugField.getObject("EstimatedRobot").setPose(drivetrainPose);
+        // var debugField = vision.getSimDebugField();
+        // debugField.getObject("EstimatedRobot").setPose(drivetrainPose);
     }
 }
