@@ -124,7 +124,7 @@ public class Intake extends SubsystemBase {
         /* set the default command to neutral output */
         setDefaultCommand(coastIntake());
 
-        SmartDashboard.putData("Intake TopIndex", TopIndexMech2d);
+        // SmartDashboard.putData("Intake TopIndex", TopIndexMech2d);
 
         if (Utils.isSimulation()) {
             startSimThread();
@@ -159,6 +159,10 @@ public class Intake extends SubsystemBase {
      */
     public Command setTarget(Supplier<IntakeSetpoint> target) {
         return run(() -> {
+            // double OnorOff = Utils.getCurrentTimeSeconds();
+            // if (OnorOff == ) {
+                
+            // }
             IntakeSetpoint t = target.get();
             TopIndexSetpointRequest.withVelocity(t.TopIndexTarget);
             TopIndex.setControl(TopIndexSetpointRequest);

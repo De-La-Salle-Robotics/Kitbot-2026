@@ -31,10 +31,10 @@ public class Telemetry {
         // SignalLogger.start();
         SignalLogger.stop();
 
-        /* Set up the module state Mechanism2d telemetry */
-        for (int i = 0; i < 4; ++i) {
-            SmartDashboard.putData("Module " + i, m_moduleMechanisms[i]);
-        }
+        // /* Set up the module state Mechanism2d telemetry */
+        // for (int i = 0; i < 4; ++i) {
+        //     SmartDashboard.putData("Module " + i, m_moduleMechanisms[i]);
+        // }
     }
 
     /* What to publish over networktables for telemetry */

@@ -10,6 +10,7 @@ import java.util.function.Consumer;
 import java.util.function.Supplier;
 
 import com.ctre.phoenix6.Utils;
+import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import edu.wpi.first.apriltag.AprilTagFieldLayout;
 import edu.wpi.first.apriltag.AprilTagFields;
@@ -19,6 +20,7 @@ import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Rotation3d;
 import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Transform3d;
+import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -48,6 +50,9 @@ public class LimelightVisionSystem {
         11, new Translation3d(Inches.of(-23.5), Inches.of(14), Inches.of(33))
     ));
 
+    private final Translation2d BlueHubTarget = new Translation2d(4.6256194, 4.0346376);
+    private final Translation2d RedHubTarget = new Translation2d(11.915419, 4.0346376);
+
     private final ApriltagTarget BlueHub = new ApriltagTarget(Map.of(
         18, new Translation3d(Inches.of(-23.5), Inches.of(0), Inches.of(33)),
         21, new Translation3d(Inches.of(-23.5), Inches.of(0), Inches.of(33)),
@@ -73,10 +78,12 @@ public class LimelightVisionSystem {
     public double timeOfLastTrackedHubTarget = 0;
     Pose3d hubTarget = Pose3d.kZero;
     Rotation2d hubHeading = Rotation2d.kZero;
+    double hubDistance = 0;
 
     private final NetworkTable cameraTable = NetworkTableInstance.getDefault().getTable("CameraDetails");
     private final StructPublisher<Pose3d> hubTargetPublisher = cameraTable.getStructTopic("HubTarget", Pose3d.struct).publish();
     private final StructPublisher<Rotation2d> hubHeadingPublisher = cameraTable.getStructTopic("HubHeading", Rotation2d.struct).publish();
+    private final SwerveRequest.FieldCentricFacingAngle targetHub = new SwerveRequest.FieldCentricFacingAngle();
     
     public LimelightVisionSystem(Consumer<LoggableRobotPose> poseConsumer, Supplier<Pose2d> currentRobotPose) {
         this.poseConsumer = poseConsumer;
@@ -102,7 +109,6 @@ public class LimelightVisionSystem {
             for (LimelightTarget_Fiducial target : results.targets_Fiducials) {
                 /* Check that the apriltag id is a hub ID */
                 if (Arrays.stream(hubTargetIds).anyMatch(x -> x == (int)target.fiducialID)) {
-                    timeOfLastTrackedHubTarget = Utils.getCurrentTimeSeconds();
                     /* If we've never assigned the best target, use this one */
                     if (bestTarget == null) {
                         bestTarget = target;
@@ -114,18 +120,29 @@ public class LimelightVisionSystem {
                 }
             }
             if (bestTarget != null) {
+                /* Update our timestamp when we decide to use this target */
+                timeOfLastTrackedHubTarget = Utils.getCurrentTimeSeconds();
+
                 /* Process them */
+                var cameraRobotPose = bestTarget.getRobotPose_FieldSpace2D();
+                var hubTarget = currentAlliance == Alliance.Red ? RedHubTarget : BlueHubTarget;
+                var targetDelta = hubTarget.minus(cameraRobotPose.getTranslation());
+                if (targetDelta.getX() == 0 && targetDelta.getY() == 0) {
+                    /* Don't do anything */
+                }
+                else {
+                    var angleToTarget = targetDelta.getAngle();
+                    // var robotPose = currentRobotPose.get();
+                    hubHeading = angleToTarget;
+                    hubDistance = targetDelta.getNorm();
+                }
                 // Transform3d tagRelativeToRobot = bestTarget.getTargetPose_RobotSpace().minus(new Pose3d());
                 // var transformToHub = currentAlliance == Alliance.Red ? RedHub.getHubPose((int)bestTarget.fiducialID) :
                 //                                         BlueHub.getHubPose((int)bestTarget.fiducialID);
-                var robotPose = currentRobotPose.get();
                 // hubTarget = new Pose3d(robotPose).transformBy(tagRelativeToRobot).transformBy(transformToHub);
                 // var hubRelativeToRobot = hubTarget.relativeTo(new Pose3d(robotPose));
 
-                double offsetX = bestTarget.tx;
-                hubHeading = robotPose.getRotation().minus(Rotation2d.fromDegrees(offsetX).plus(Rotation2d.k180deg));
-
-                System.out.println("Heading is " + hubHeading);
+                // double offsetX = bestTarget.tx;
             }
             var robotPose = results.getBotPose3d_wpiBlue();
             if (robotPose != null) {
@@ -153,5 +170,8 @@ public class LimelightVisionSystem {
     }
     public Rotation2d getHeadingToHubFieldRelative() {
         return hubHeading;
+    }
+    public double getHubDistance() {
+        return hubDistance;
     }
 }

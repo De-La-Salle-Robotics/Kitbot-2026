@@ -14,9 +14,11 @@ import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
 import com.ctre.phoenix6.configs.MotorOutputConfigs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.CoastOut;
+import com.ctre.phoenix6.controls.Follower;
 import com.ctre.phoenix6.controls.VelocityTorqueCurrentFOC;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
+import com.ctre.phoenix6.signals.MotorAlignmentValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 import com.ctre.phoenix6.sim.ChassisReference;
 import com.ctre.phoenix6.sim.TalonFXSimState;
@@ -43,8 +45,10 @@ public class Flywheel extends SubsystemBase {
     public enum FlywheelSetpoint {
         Intake(RotationsPerSecond.of(80)),
         Outtake(RotationsPerSecond.of(-80)),
-        Near(RotationsPerSecond.of(44)),
-        Far(RotationsPerSecond.of(100));
+        Near(RotationsPerSecond.of(44)), // This also affects our auto-distance table
+        Mid(RotationsPerSecond.of(51)), // This also affects our auto-distance table
+        Far(RotationsPerSecond.of(70)), // This also affects our auto-distance table
+        Nothing(RotationsPerSecond.of(0));
 
         /** The velocity target of the setpoint. */
         public final AngularVelocity leaderMotorTarget;
@@ -56,11 +60,14 @@ public class Flywheel extends SubsystemBase {
 
     private static final int kNumConfigAttempts = 2;
 
+
     private static final double kGearRatio = 1;
 
     /* leader and follower motors */
     private final CANBus kCANBus = new CANBus("canivore");
     private final TalonFX leaderMotor = new TalonFX(51, kCANBus);
+    private final TalonFX followMotor = new TalonFX(52, kCANBus);
+    private final TalonFX followMotor2 = new TalonFX(53, kCANBus);
 
     /* device status signals */
     private final StatusSignal<AngularVelocity> leaderMotorVelocity = leaderMotor.getVelocity(false);
@@ -79,6 +86,8 @@ public class Flywheel extends SubsystemBase {
     private Notifier simNotifier = null;
     private double lastSimTime = 0.0;
 
+    private boolean joystick2aby = false;
+
     /* Mechanism2d visualization for flywheel leaderMotor */
     private final Mechanism2d leaderMotorMech2d = new Mechanism2d(2, 2);
     private final MechanismLigament2d leaderMotorFlywheelMech2d = leaderMotorMech2d.getRoot("Flywheel Root leaderMotor", 1, 1)
@@ -88,7 +97,7 @@ public class Flywheel extends SubsystemBase {
     private static final TalonFXConfiguration motorTalonFXInitialConfigs = new TalonFXConfiguration()
         .withMotorOutput(
             new MotorOutputConfigs()
-                .withNeutralMode(NeutralModeValue.Brake)
+                .withNeutralMode(NeutralModeValue.Coast)
         )
         .withCurrentLimits(
             new CurrentLimitsConfigs()
@@ -105,14 +114,15 @@ public class Flywheel extends SubsystemBase {
         .withFeedback(
             motorTalonFXInitialConfigs.Feedback.clone()
                 .withSensorToMechanismRatio(1)
+                .withVelocityFilterTimeConstant(0.005)
         )
         .withSlot0(
             motorTalonFXInitialConfigs.Slot0.clone()
-                .withKP(12)
+                .withKP(25)
                 .withKI(0)
                 .withKD(0)
-                .withKS(7)
-                .withKV(0.1)
+                .withKS(3)
+                .withKV(0.03)
                 .withKA(0)
         )
         .withTorqueCurrent(
@@ -125,22 +135,29 @@ public class Flywheel extends SubsystemBase {
     private final InterpolatingDoubleTreeMap table;
     {{
         table = new InterpolatingDoubleTreeMap();
-        table.put(0.0, 44.0); //distance(in) then RPS
-        table.put(84.0, 240.0);
-        table.put(96.0, 280.0);// all made up
+        table.put(53.0, FlywheelSetpoint.Near.leaderMotorTarget.in(RotationsPerSecond)); //distance(in) then RPS
+        table.put(97.0, FlywheelSetpoint.Mid.leaderMotorTarget.in(RotationsPerSecond));
+        table.put(127.0, FlywheelSetpoint.Far.leaderMotorTarget.in(RotationsPerSecond));
+      //  table.put(, 70.0);
     }};
 
     public Flywheel() {
         for (int i = 0; i < kNumConfigAttempts; ++i) {
             var status = leaderMotor.getConfigurator().apply(leaderMotorConfigs);
-            if (status.isOK()) break;
+            if (status.isOK()) {
+                followMotor.getConfigurator().apply(new TalonFXConfiguration()); 
+                followMotor2.getConfigurator().apply(new TalonFXConfiguration());
+                break;
+            }
         }
 
+        followMotor.setControl(new Follower(leaderMotor.getDeviceID(), MotorAlignmentValue.Aligned));
+        followMotor2.setControl(new Follower(leaderMotor.getDeviceID(), MotorAlignmentValue.Aligned));
 
         /* set the default command to neutral output */
         setDefaultCommand(coastFlywheel());
 
-        SmartDashboard.putData("Flywheel leaderMotor", leaderMotorMech2d);
+        // SmartDashboard.putData("Flywheel leaderMotor", leaderMotorMech2d);
 
         if (Utils.isSimulation()) {
             startSimThread();
@@ -182,12 +199,13 @@ public class Flywheel extends SubsystemBase {
     }
 
     public Command setDistance(DoubleSupplier distanceSupplier) {
-        return run (() -> {
+        return run(() -> {
             double target = table.get(distanceSupplier.getAsDouble());
             leaderMotorSetpointRequest.withVelocity(target);
             leaderMotor.setControl(leaderMotorSetpointRequest);
         });
     }
+
 
     /**
      * Stops driving the Flywheel. We use coast so no energy is used during the braking event.

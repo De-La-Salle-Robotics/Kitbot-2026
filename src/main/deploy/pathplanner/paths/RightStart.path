@@ -1,0 +1,141 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 4.31077032810271,
+        "y": 0.4057061340941527
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 5.310770328102711,
+        "y": 0.4057061340941527
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.843024251064955,
+        "y": 2.540584878740174
+      },
+      "prevControl": {
+        "x": 8.24412268187808,
+        "y": 1.0008844507801167
+      },
+      "nextControl": {
+        "x": 7.643952569664536,
+        "y": 3.3047632686321053
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 6.148059914403043,
+        "y": 1.0008844507801167
+      },
+      "prevControl": {
+        "x": 6.963195435087779,
+        "y": 1.5701854493535838
+      },
+      "nextControl": {
+        "x": 5.336576633378222,
+        "y": 0.43413422276278013
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.961426533518593,
+        "y": 0.6127246790254821
+      },
+      "prevControl": {
+        "x": 4.6170818419025155,
+        "y": 0.43620209599904025
+      },
+      "nextControl": {
+        "x": 3.6250213979979087,
+        "y": 0.7032952924348979
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.59,
+        "y": 2.165
+      },
+      "prevControl": {
+        "x": 1.9948216833095582,
+        "y": 0.806440798858773
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": null
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.5,
+      "rotationDegrees": 62.606866690660944
+    }
+  ],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "Start Intaking",
+      "waypointRelativePos": 0.16277915632753753,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Intake Fuel"
+        }
+      }
+    },
+    {
+      "name": "Stop Intaking",
+      "waypointRelativePos": 2.2034739454093972,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Stop Intake"
+        }
+      }
+    },
+    {
+      "name": "Prep for shooting",
+      "waypointRelativePos": 2.21,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Shoot Far"
+        }
+      }
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": -133.0
+  },
+  "reversed": false,
+  "folder": "Main Score Autos",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 90.0
+  },
+  "useDefaultConstraints": true
+}

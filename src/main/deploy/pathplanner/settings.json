@@ -1,10 +1,12 @@
 {
-  "robotWidth": 0.762,
-  "robotLength": 0.762,
+  "robotWidth": 0.889,
+  "robotLength": 0.737,
   "holonomicMode": true,
   "pathFolders": [
+    "Main Score Autos",
     "Only Score Autos",
-    "Stash Autos"
+    "Stash Autos",
+    "support autos"
   ],
   "autoFolders": [],
   "defaultMaxVel": 3.0,
@@ -22,13 +24,13 @@
   "driveCurrentLimit": 120.0,
   "wheelCOF": 1.7,
   "flModuleX": 0.267,
-  "flModuleY": 0.2667,
+  "flModuleY": 0.307,
   "frModuleX": 0.267,
-  "frModuleY": -0.267,
+  "frModuleY": -0.307,
   "blModuleX": -0.267,
-  "blModuleY": 0.267,
+  "blModuleY": 0.307,
   "brModuleX": -0.267,
-  "brModuleY": -0.267,
+  "brModuleY": -0.307,
   "bumperOffsetX": 0.0,
   "bumperOffsetY": 0.0,
   "robotFeatures": []

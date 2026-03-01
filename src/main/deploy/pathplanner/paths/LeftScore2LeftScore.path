@@ -1,0 +1,125 @@
+{
+  "version": "2025.0",
+  "waypoints": [
+    {
+      "anchor": {
+        "x": 2.512,
+        "y": 6.163
+      },
+      "prevControl": null,
+      "nextControl": {
+        "x": 2.1888302425186144,
+        "y": 7.509029957198857
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 7.648944365192582,
+        "y": 5.050684736091298
+      },
+      "prevControl": {
+        "x": 6.587974322404492,
+        "y": 8.789957203989156
+      },
+      "nextControl": {
+        "x": 7.795841930700395,
+        "y": 4.532960389359391
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 5.022396576327459,
+        "y": 7.521968616257345
+      },
+      "prevControl": {
+        "x": 7.428987161206203,
+        "y": 7.1726248216781725
+      },
+      "nextControl": {
+        "x": 4.774989642142495,
+        "y": 7.557882526058388
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 2.512,
+        "y": 6.163
+      },
+      "prevControl": {
+        "x": 2.214410841654778,
+        "y": 7.534497860199715
+      },
+      "nextControl": null,
+      "isLocked": false,
+      "linkedName": "leftShootPos"
+    }
+  ],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 1,
+      "rotationDegrees": -67.3801350510516
+    }
+  ],
+  "constraintZones": [],
+  "pointTowardsZones": [],
+  "eventMarkers": [
+    {
+      "name": "Intake Fuel",
+      "waypointRelativePos": 0.46749379652603795,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Intake Fuel"
+        }
+      }
+    },
+    {
+      "name": "Stop Intake",
+      "waypointRelativePos": 2.093300248138937,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Stop Intake"
+        }
+      }
+    },
+    {
+      "name": "Shoot Far",
+      "waypointRelativePos": 2.1,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Shoot Far"
+        }
+      }
+    }
+  ],
+  "globalConstraints": {
+    "maxVelocity": 3.0,
+    "maxAcceleration": 3.0,
+    "maxAngularVelocity": 540.0,
+    "maxAngularAcceleration": 720.0,
+    "nominalVoltage": 12.0,
+    "unlimited": false
+  },
+  "goalEndState": {
+    "velocity": 0,
+    "rotation": 135.0
+  },
+  "reversed": false,
+  "folder": "support autos",
+  "idealStartingState": {
+    "velocity": 0,
+    "rotation": 135.0
+  },
+  "useDefaultConstraints": true
+}

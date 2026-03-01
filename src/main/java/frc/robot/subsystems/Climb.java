@@ -13,11 +13,16 @@ import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
 
+import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 
 
 public class Climb extends SubsystemBase{
     private static final int kNumConfigAttempts = 2;
+    
+    public enum climbVars{
+        climb();
+    }
 
     private final CANBus kCANBus = new CANBus("canivore");
     private final TalonFX Climber = new TalonFX(60, kCANBus);
@@ -29,11 +34,13 @@ public class Climb extends SubsystemBase{
                 .withNeutralMode(NeutralModeValue.Brake)
         ).withCurrentLimits(
             new CurrentLimitsConfigs()
-                .withStatorCurrentLimit(Amps.of(20))
+                .withStatorCurrentLimit(Amps.of(80))
         ).withSoftwareLimitSwitch(
             new SoftwareLimitSwitchConfigs()
                 .withForwardSoftLimitThreshold(90)
                 .withForwardSoftLimitEnable(true)
+                .withReverseSoftLimitThreshold(0)
+                .withReverseSoftLimitEnable(false)
         );
 
      public Climb() {
@@ -46,6 +53,13 @@ public class Climb extends SubsystemBase{
 
     public void driveOpenLoop(double dutyCycle) {
         Climber.setControl(openLoopRequest.withOutput(dutyCycle));
+    }
+
+    public Command climb() {
+        return run(()->driveOpenLoop(0.8));
+    }
+    public Command unclimb() {
+        return run(()->driveOpenLoop(-0.8));
     }
 
      public void periodic() {
