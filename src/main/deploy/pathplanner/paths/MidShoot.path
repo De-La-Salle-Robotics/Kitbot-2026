@@ -3,25 +3,25 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 2.0,
-        "y": 2.165
+        "x": 3.5,
+        "y": 4.0
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.0,
-        "y": 2.165
+        "x": 3.25,
+        "y": 4.0
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.0631669044222536,
-        "y": 4.6495863052781745
+        "x": 2.75,
+        "y": 4.0
       },
       "prevControl": {
-        "x": 1.9429957203994288,
-        "y": 5.632924393723251
+        "x": 3.0,
+        "y": 4.0
       },
       "nextControl": null,
       "isLocked": false,
@@ -31,30 +31,7 @@
   "rotationTargets": [],
   "constraintZones": [],
   "pointTowardsZones": [],
-  "eventMarkers": [
-    {
-      "name": "Stop Intake",
-      "waypointRelativePos": 0,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "Stop Intake"
-        }
-      }
-    },
-    {
-      "name": "Climb",
-      "waypointRelativePos": 1.0,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "Climb"
-        }
-      }
-    }
-  ],
+  "eventMarkers": [],
   "globalConstraints": {
     "maxVelocity": 3.0,
     "maxAcceleration": 3.0,
@@ -68,10 +45,10 @@
     "rotation": 180.0
   },
   "reversed": false,
-  "folder": "Main Score Autos",
+  "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -133.0
+    "rotation": 180.0
   },
   "useDefaultConstraints": true
 }

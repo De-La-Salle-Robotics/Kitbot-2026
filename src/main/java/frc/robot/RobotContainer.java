@@ -28,6 +28,7 @@ import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.CommandScheduler;
 import edu.wpi.first.wpilibj2.command.Commands;
+import edu.wpi.first.wpilibj2.command.DeferredCommand;
 import edu.wpi.first.wpilibj2.command.button.CommandXboxController;
 import edu.wpi.first.wpilibj2.command.button.RobotModeTriggers;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
@@ -37,6 +38,7 @@ import frc.robot.subsystems.Climb;
 import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.subsystems.Flywheel;
 import frc.robot.subsystems.Intake;
+import frc.robot.subsystems.OverBumper;
 import frc.robot.subsystems.Flywheel.FlywheelSetpoint;
 import frc.robot.subsystems.Intake.IntakeSetpoint;
 import frc.robot.vision.LimelightHelpers;
@@ -71,6 +73,7 @@ public class RobotContainer {
     public final Flywheel flywheel = new Flywheel();
     public final Intake intake = new Intake();
     public final Climb climb = new Climb();
+    public final OverBumper overBumper = new OverBumper();
     public final LimelightVisionSystem vision = new LimelightVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose);
     //public final 
 
@@ -114,12 +117,13 @@ public class RobotContainer {
     public RobotContainer() {
         NamedCommands.registerCommand("Stop Shooting", flywheel.coastFlywheel().alongWith(intake.coastIntake()));
         /* Shoot commands need a bit of time to spool up the flywheel before feeding with the intake */
-        NamedCommands.registerCommand("Shoot Near", flywheel.setTarget(() -> FlywheelSetpoint.Near));
-        NamedCommands.registerCommand("Shoot Mid", flywheel.setTarget(() -> FlywheelSetpoint.Mid));
+        NamedCommands.registerCommand("VisShoot", flywheel.setDistance(() -> vision.getHubDistance()));
+        NamedCommands.registerCommand("Shoot Near", flywheel.setTarget(() -> FlywheelSetpoint.AutoNear));
+        NamedCommands.registerCommand("Shoot Mid", flywheel.setTarget(() -> FlywheelSetpoint.AutoMid));
         NamedCommands.registerCommand("Shoot Far", flywheel.setTarget(() -> FlywheelSetpoint.Far));
         NamedCommands.registerCommand("Stop Intake", intake.coastIntake().alongWith(flywheel.coastFlywheel()));
-        NamedCommands.registerCommand("Intake Fuel", intake.setTarget(() -> IntakeSetpoint.Intake).alongWith(flywheel.setTarget(()-> FlywheelSetpoint.Intake)));
-        NamedCommands.registerCommand("Outtake Fuel", intake.setTarget(() -> IntakeSetpoint.Outtake).alongWith(flywheel.setTarget(()-> FlywheelSetpoint.Outtake)));
+        NamedCommands.registerCommand("Intake Fuel", intake.setTarget(() -> IntakeSetpoint.Intake).alongWith(flywheel.setTarget(() -> FlywheelSetpoint.Intake)));
+        NamedCommands.registerCommand("Outtake Fuel", intake.setTarget(() -> IntakeSetpoint.Outtake));
         // NamedCommands.registerCommand("Go to Pos", camera.setGoal(() -> ShootPoints.Middle).andThen(AutoAlign(() -> )));
         NamedCommands.registerCommand("Climb", climb.climb());
         NamedCommands.registerCommand("UnClimb", climb.unclimb());
@@ -180,6 +184,19 @@ public class RobotContainer {
             // })
         ));
 
+
+        //over bumper intake controls
+        // joystick.x().onTrue(overBumper.run(() -> overBumper.overBumperToPos(90)));
+        // joystick.b().onTrue(overBumper.run(() -> overBumper.overBumperToPos(20)));
+        // overBumper.setDefaultCommand(overBumper.run(()-> {
+        //     double overBumperY = joystick2.getRightY();
+        //     if (overBumperY > 0.1 || overBumperY < -0.1) {
+        //         overBumper.driveOpenLoop(overBumperY);
+        //     } else{
+        //         overBumper.driveOpenLoop(0);
+        //     }
+        // }));
+
         final double StraightSpeed = 1;
 
         // joystick.povRight().whileTrue(drivetrain.applyRequest(() -> 
@@ -225,7 +242,7 @@ public class RobotContainer {
 
         // Bind left bumper/trigger to our intake/outtake
         joystick.leftTrigger().whileTrue(intake.setTarget(()->IntakeSetpoint.Intake).alongWith(flywheel.setTarget(()->FlywheelSetpoint.Intake)));
-        joystick.capture().whileTrue(intake.setTarget(()->IntakeSetpoint.Outtake).alongWith(flywheel.setTarget(()->FlywheelSetpoint.Outtake)));
+        joystick.capture().whileTrue(intake.setTarget(()->IntakeSetpoint.Outtake));
 
         // Bind right bumper/trigger to our near/far shots
        abxy.whileTrue(
@@ -239,13 +256,20 @@ public class RobotContainer {
             if (joystick2.getHID().getYButton()) {
                 return FlywheelSetpoint.Near;
             }
+            if (joystick2.getHID().getXButton()) {
+                return FlywheelSetpoint.Pass;
+            }
             return FlywheelSetpoint.Nothing;
         })
        );
-       abxy.negate().and(joystick.rightTrigger()).whileTrue(
+    //    abxy.negate().and(joystick.rightTrigger()).and(joystick.povDown()).whileTrue(
+    //     flywheel.setDistanceBack(vision::getHubDistance)
+    //    );
+       abxy.negate().and(joystick.rightTrigger())/*.and(joystick.povDown().negate())*/.whileTrue(
         flywheel.setDistance(vision::getHubDistance)
        );
 
+       
         
        joystick.rightTrigger().whileTrue(
         Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot))

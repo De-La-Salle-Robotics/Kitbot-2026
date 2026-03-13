@@ -6,6 +6,7 @@ package frc.robot;
 
 import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.HootAutoReplay;
+import com.ctre.phoenix6.SignalLogger;
 
 import edu.wpi.first.wpilibj.TimedRobot;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -25,6 +26,8 @@ public class Robot extends TimedRobot {
         .withJoystickReplay();
 
     public Robot() {
+        SignalLogger.enableAutoLogging(false);
+
         m_robotContainer = new RobotContainer();
     }
 

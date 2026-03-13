@@ -22,12 +22,14 @@ import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
 import frc.robot.vision.LimelightHelpers.LimelightTarget_Fiducial;
 
@@ -105,26 +107,27 @@ public class LimelightVisionSystem {
 
             var results = LimelightHelpers.getLatestResults("limelight");
             
-            LimelightTarget_Fiducial bestTarget = null;
-            for (LimelightTarget_Fiducial target : results.targets_Fiducials) {
-                /* Check that the apriltag id is a hub ID */
-                if (Arrays.stream(hubTargetIds).anyMatch(x -> x == (int)target.fiducialID)) {
-                    /* If we've never assigned the best target, use this one */
-                    if (bestTarget == null) {
-                        bestTarget = target;
-                    }
-                    /* Otherwise only update the target if this is a better ambiguity */
-                    else if (target.tx < bestTarget.tx) {
-                        bestTarget = target;
-                    }
-                }
-            }
-            if (bestTarget != null) {
+            // LimelightTarget_Fiducial bestTarget = null;
+            // for (LimelightTarget_Fiducial target : results.targets_Fiducials) {
+            //     /* Check that the apriltag id is a hub ID */
+            //     if (Arrays.stream(hubTargetIds).anyMatch(x -> x == (int)target.fiducialID)) {
+            //         /* If we've never assigned the best target, use this one */
+            //         if (bestTarget == null) {
+            //             bestTarget = target;
+            //         }
+            //         /* Otherwise only update the target if this is a better ambiguity */
+            //         else if (target.tx < bestTarget.tx) {
+            //             bestTarget = target;
+            //         }
+            //     }
+            // }
+            // if (bestTarget != null) {
                 /* Update our timestamp when we decide to use this target */
                 timeOfLastTrackedHubTarget = Utils.getCurrentTimeSeconds();
 
                 /* Process them */
-                var cameraRobotPose = bestTarget.getRobotPose_FieldSpace2D();
+                var cameraRobotPose = results.getBotPose2d_wpiBlue();
+                /* Limelight always assumes 0,0 is your DS corner, it isn't always blue alliance */
                 var hubTarget = currentAlliance == Alliance.Red ? RedHubTarget : BlueHubTarget;
                 var targetDelta = hubTarget.minus(cameraRobotPose.getTranslation());
                 if (targetDelta.getX() == 0 && targetDelta.getY() == 0) {
@@ -135,6 +138,9 @@ public class LimelightVisionSystem {
                     // var robotPose = currentRobotPose.get();
                     hubHeading = angleToTarget;
                     hubDistance = targetDelta.getNorm();
+
+                    SmartDashboard.putNumber("Hub Heading", angleToTarget.getDegrees());
+                    SmartDashboard.putNumber("Hub Distance", Units.metersToInches(hubDistance));
                 }
                 // Transform3d tagRelativeToRobot = bestTarget.getTargetPose_RobotSpace().minus(new Pose3d());
                 // var transformToHub = currentAlliance == Alliance.Red ? RedHub.getHubPose((int)bestTarget.fiducialID) :
@@ -143,7 +149,7 @@ public class LimelightVisionSystem {
                 // var hubRelativeToRobot = hubTarget.relativeTo(new Pose3d(robotPose));
 
                 // double offsetX = bestTarget.tx;
-            }
+            // }
             var robotPose = results.getBotPose3d_wpiBlue();
             if (robotPose != null) {
                 poseConsumer.accept(new LoggableRobotPose(robotPose, results.timestamp_RIOFPGA_capture));

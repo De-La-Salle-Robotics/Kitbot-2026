@@ -3,54 +3,75 @@
   "waypoints": [
     {
       "anchor": {
-        "x": 2.0,
-        "y": 2.165
+        "x": 3.407168674698795,
+        "y": 0.5927710843373495
       },
       "prevControl": null,
       "nextControl": {
-        "x": 3.0,
-        "y": 2.165
+        "x": 7.723614457831324,
+        "y": 0.1338072289156627
       },
       "isLocked": false,
       "linkedName": null
     },
     {
       "anchor": {
-        "x": 1.0631669044222536,
-        "y": 4.6495863052781745
+        "x": 8.728963855421688,
+        "y": 2.4832650602409636
       },
       "prevControl": {
-        "x": 1.9429957203994288,
-        "y": 5.632924393723251
+        "x": 8.728963855421688,
+        "y": 2.7564578313253016
+      },
+      "nextControl": {
+        "x": 8.728963855421688,
+        "y": 0.06468342494753809
+      },
+      "isLocked": false,
+      "linkedName": null
+    },
+    {
+      "anchor": {
+        "x": 3.4290240963855423,
+        "y": 0.5927710843373495
+      },
+      "prevControl": {
+        "x": 3.537777473790122,
+        "y": 0.3676651028461926
       },
       "nextControl": null,
       "isLocked": false,
       "linkedName": null
     }
   ],
-  "rotationTargets": [],
+  "rotationTargets": [
+    {
+      "waypointRelativePos": 0.4066390041493705,
+      "rotationDegrees": 55.02974872332179
+    }
+  ],
   "constraintZones": [],
   "pointTowardsZones": [],
   "eventMarkers": [
     {
-      "name": "Stop Intake",
-      "waypointRelativePos": 0,
+      "name": "Intake Fuel",
+      "waypointRelativePos": 0.3156327543424404,
+      "endWaypointRelativePos": null,
+      "command": {
+        "type": "named",
+        "data": {
+          "name": "Intake Fuel"
+        }
+      }
+    },
+    {
+      "name": "Stop Intaking",
+      "waypointRelativePos": 1.1454094292803796,
       "endWaypointRelativePos": null,
       "command": {
         "type": "named",
         "data": {
           "name": "Stop Intake"
-        }
-      }
-    },
-    {
-      "name": "Climb",
-      "waypointRelativePos": 1.0,
-      "endWaypointRelativePos": null,
-      "command": {
-        "type": "named",
-        "data": {
-          "name": "Climb"
         }
       }
     }
@@ -65,13 +86,13 @@
   },
   "goalEndState": {
     "velocity": 0,
-    "rotation": 180.0
+    "rotation": 90.0
   },
   "reversed": false,
-  "folder": "Main Score Autos",
+  "folder": null,
   "idealStartingState": {
     "velocity": 0,
-    "rotation": -133.0
+    "rotation": 90.0
   },
   "useDefaultConstraints": true
 }

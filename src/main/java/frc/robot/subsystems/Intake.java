@@ -40,15 +40,17 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 public class Intake extends SubsystemBase {
     /** Velocity setpoints for the flywheel. */
     public enum IntakeSetpoint {
-        Intake(RotationsPerSecond.of(80)),
-        Outtake(RotationsPerSecond.of(-70)),
-        FeedToShoot(RotationsPerSecond.of(-90));
+        Intake(RotationsPerSecond.of(80), RotationsPerSecond.of(80)),
+        Outtake(RotationsPerSecond.of(-70), RotationsPerSecond.of(-80)),
+        FeedToShoot(RotationsPerSecond.of(-90), RotationsPerSecond.of(80));
 
         /** The velocity target of the setpoint. */
         public final AngularVelocity TopIndexTarget;
+        public final AngularVelocity BottomIndexTarget;
 
-        private IntakeSetpoint(AngularVelocity TopIndexTarget) {
+        private IntakeSetpoint(AngularVelocity TopIndexTarget, AngularVelocity BottomIndexTarget) {
             this.TopIndexTarget = TopIndexTarget;
+            this.BottomIndexTarget = BottomIndexTarget;
         }
     }
 
@@ -59,6 +61,7 @@ public class Intake extends SubsystemBase {
     /* leader and follower motors */
     private final CANBus kCANBus = new CANBus("canivore");
     private final TalonFX TopIndex = new TalonFX(15, kCANBus);
+    private final TalonFX BottomIndex = new TalonFX(51, kCANBus);
 
     /* device status signals */
     private final StatusSignal<AngularVelocity> TopIndexVelocity = TopIndex.getVelocity(false);
@@ -66,6 +69,7 @@ public class Intake extends SubsystemBase {
 
     /* controls used by the leader motors */
     private final VelocityVoltage TopIndexSetpointRequest = new VelocityVoltage(0);
+    private final VelocityVoltage BottomIndexSetpointRequest = new VelocityVoltage(0);
     private final CoastOut coastRequest = new CoastOut();
 
     /* simulation */
@@ -119,6 +123,10 @@ public class Intake extends SubsystemBase {
             var status = TopIndex.getConfigurator().apply(TopIndexConfigs);
             if (status.isOK()) break;
         }
+        for (int i = 0; i < kNumConfigAttempts; ++i) {
+            var status = BottomIndex.getConfigurator().apply(TopIndexConfigs);
+            if (status.isOK()) break;
+        }
 
 
         /* set the default command to neutral output */
@@ -159,13 +167,12 @@ public class Intake extends SubsystemBase {
      */
     public Command setTarget(Supplier<IntakeSetpoint> target) {
         return run(() -> {
-            // double OnorOff = Utils.getCurrentTimeSeconds();
-            // if (OnorOff == ) {
-                
-            // }
             IntakeSetpoint t = target.get();
             TopIndexSetpointRequest.withVelocity(t.TopIndexTarget);
             TopIndex.setControl(TopIndexSetpointRequest);
+            BottomIndexSetpointRequest.withVelocity(t.BottomIndexTarget);
+            BottomIndex.setControl(BottomIndexSetpointRequest);
+            
         });
     }
 
@@ -177,6 +184,7 @@ public class Intake extends SubsystemBase {
     public Command coastIntake() {
         return runOnce(() -> {
             TopIndex.setControl(coastRequest);
+            BottomIndex.setControl(coastRequest);
         });
     }
 
