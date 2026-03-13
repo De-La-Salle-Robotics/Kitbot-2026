@@ -23,6 +23,7 @@ import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.numbers.N1;
 import edu.wpi.first.math.numbers.N3;
 import edu.wpi.first.wpilibj.Joystick;
+import edu.wpi.first.wpilibj.Timer;
 import edu.wpi.first.wpilibj.smartdashboard.SendableChooser;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import edu.wpi.first.wpilibj2.command.Command;
@@ -72,7 +73,7 @@ public class RobotContainer {
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     public final Flywheel flywheel = new Flywheel();
     public final Intake intake = new Intake();
-    public final Climb climb = new Climb();
+    // public final Climb climb = new Climb();
     public final OverBumper overBumper = new OverBumper();
     public final LimelightVisionSystem vision = new LimelightVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose);
     //public final 
@@ -111,6 +112,33 @@ public class RobotContainer {
             }
         });
 
+    Timer jiggleTimer = new Timer();
+    private double JigglePower = 0.2;
+    Command jiggleCommandAuto = drivetrain.applyRequest(() -> {
+            jiggleTimer.start();
+            if(jiggleTimer.get() < 0.1) {
+                return forwardStraight.withVelocityX(MaxSpeed * JigglePower);
+            } else if (jiggleTimer.get() < 0.2) {
+                return forwardStraight.withVelocityX(MaxSpeed * -JigglePower);
+            } else {
+                jiggleTimer.reset();
+                return forwardStraight.withVelocityX(0);
+            }
+        }
+    );
+    Command jiggleCommand = drivetrain.applyRequest(() -> {
+            jiggleTimer.start();
+            if(jiggleTimer.get() < 0.1) {
+                return forwardStraight.withVelocityX(MaxSpeed * 0.05);
+            } else if (jiggleTimer.get() < 0.2) {
+                return forwardStraight.withVelocityX(MaxSpeed * -0.05);
+            } else {
+                jiggleTimer.reset();
+                return forwardStraight.withVelocityX(0);
+            }
+        }
+    );
+
     /* Path follower */
     private final SendableChooser<Command> autoChooser;
 
@@ -125,10 +153,10 @@ public class RobotContainer {
         NamedCommands.registerCommand("Intake Fuel", intake.setTarget(() -> IntakeSetpoint.Intake).alongWith(flywheel.setTarget(() -> FlywheelSetpoint.Intake)));
         NamedCommands.registerCommand("Outtake Fuel", intake.setTarget(() -> IntakeSetpoint.Outtake));
         // NamedCommands.registerCommand("Go to Pos", camera.setGoal(() -> ShootPoints.Middle).andThen(AutoAlign(() -> )));
-        NamedCommands.registerCommand("Climb", climb.climb());
-        NamedCommands.registerCommand("UnClimb", climb.unclimb());
+        // NamedCommands.registerCommand("Climb", climb.climb());
+        // NamedCommands.registerCommand("UnClimb", climb.unclimb());
         NamedCommands.registerCommand("Align", alignToHubCommand);
-        NamedCommands.registerCommand("Shoot", Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(() ->IntakeSetpoint.FeedToShoot)));
+        NamedCommands.registerCommand("Shoot", Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(() ->IntakeSetpoint.FeedToShoot)).alongWith(jiggleCommandAuto));
 
 
         autoChooser = AutoBuilder.buildAutoChooser("Only Score");
@@ -160,14 +188,14 @@ public class RobotContainer {
             )
         );
 
-        climb.setDefaultCommand(climb.run(()-> {
-            double climbY = joystick2.getLeftY();
-            if (climbY > 0.1 || climbY < -0.1) {
-                climb.driveOpenLoop(climbY);
-            } else{
-                climb.driveOpenLoop(0);
-            }
-        }));
+        // climb.setDefaultCommand(climb.run(()-> {
+        //     double climbY = joystick2.getLeftY();
+        //     if (climbY > 0.1 || climbY < -0.1) {
+        //         climb.driveOpenLoop(climbY);
+        //     } else{
+        //         climb.driveOpenLoop(0);
+        //     }
+        // }));
 
         // Idle while the robot is disabled. This ensures the configured
         // neutral mode is applied to the drive motors while disabled.
@@ -262,6 +290,8 @@ public class RobotContainer {
             return FlywheelSetpoint.Nothing;
         })
        );
+
+       joystick2.leftTrigger().whileTrue(jiggleCommand);
     //    abxy.negate().and(joystick.rightTrigger()).and(joystick.povDown()).whileTrue(
     //     flywheel.setDistanceBack(vision::getHubDistance)
     //    );
