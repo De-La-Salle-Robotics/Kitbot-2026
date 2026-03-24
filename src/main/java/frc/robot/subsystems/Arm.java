@@ -10,11 +10,15 @@ import com.ctre.phoenix6.CANBus;
 import com.ctre.phoenix6.StatusSignal;
 import com.ctre.phoenix6.Utils;
 import com.ctre.phoenix6.configs.CurrentLimitsConfigs;
+import com.ctre.phoenix6.configs.MotionMagicConfigs;
 import com.ctre.phoenix6.configs.MotorOutputConfigs;
+import com.ctre.phoenix6.configs.Slot0Configs;
 import com.ctre.phoenix6.configs.TalonFXConfiguration;
 import com.ctre.phoenix6.controls.CoastOut;
-
+import com.ctre.phoenix6.controls.MotionMagicVoltage;
+import com.ctre.phoenix6.controls.TorqueCurrentFOC;
 import com.ctre.phoenix6.controls.VelocityVoltage;
+import com.ctre.phoenix6.controls.VoltageOut;
 import com.ctre.phoenix6.hardware.TalonFX;
 import com.ctre.phoenix6.signals.InvertedValue;
 import com.ctre.phoenix6.signals.NeutralModeValue;
@@ -37,17 +41,17 @@ import edu.wpi.first.wpilibj2.command.Command;
 import edu.wpi.first.wpilibj2.command.SubsystemBase;
 import edu.wpi.first.wpilibj2.command.button.Trigger;
 
-public class Intake extends SubsystemBase {
+public class Arm extends SubsystemBase {
     /** Velocity setpoints for the flywheel. */
-    public enum IntakeSetpoint {
-        Intake(RotationsPerSecond.of(100)),
-        Outtake(RotationsPerSecond.of(-70));
+    public enum ArmSetpoint {
+        Intake(Rotations.of(-22)),
+        Stow(Rotations.of(0));
 
         /** The velocity target of the setpoint. */
-        public final AngularVelocity TopIndexTarget;
+        public final Angle Target;
 
-        private IntakeSetpoint(AngularVelocity TopIndexTarget) {
-            this.TopIndexTarget = TopIndexTarget;
+        private ArmSetpoint(Angle target) {
+            this.Target = target;
         }
     }
 
@@ -57,24 +61,17 @@ public class Intake extends SubsystemBase {
 
     /* leader and follower motors */
     private final CANBus kCANBus = new CANBus("canivore");
-    private final TalonFX TopIndex = new TalonFX(20, kCANBus);
+    private final TalonFX arm = new TalonFX(14, kCANBus);
 
     /* device status signals */
-    private final StatusSignal<AngularVelocity> TopIndexVelocity = TopIndex.getVelocity(false);
-    private final StatusSignal<Current> TopIndexTorqueCurrent = TopIndex.getTorqueCurrent(false);
+    private final StatusSignal<AngularVelocity> TopIndexVelocity = arm.getVelocity(false);
+    private final StatusSignal<Current> TopIndexTorqueCurrent = arm.getTorqueCurrent(false);
 
     /* controls used by the leader motors */
-    private final VelocityVoltage TopIndexSetpointRequest = new VelocityVoltage(0);
+    private final MotionMagicVoltage TopIndexSetpointRequest = new MotionMagicVoltage(0);
     private final CoastOut coastRequest = new CoastOut();
 
-    /* simulation */
-    private final DCMotor TopIndexDCMotors = DCMotor.getKrakenX60Foc(1);
-    private final LinearSystem<N2, N1, N2> TopIndexFlywheelSystem = LinearSystemId.createDCMotorSystem(TopIndexDCMotors, 0.0005, kGearRatio);
-    private final DCMotorSim TopIndexFlywheelSim = new DCMotorSim(TopIndexFlywheelSystem, TopIndexDCMotors);
-
-    private static final double kSimLoopPeriod = 0.002; // 2 ms
-    private Notifier simNotifier = null;
-    private double lastSimTime = 0.0;
+    private boolean isZerod = false;
 
     /* Mechanism2d visualization for flywheel TopIndex */
     private final Mechanism2d TopIndexMech2d = new Mechanism2d(2, 2);
@@ -91,6 +88,16 @@ public class Intake extends SubsystemBase {
             new CurrentLimitsConfigs()
                 .withStatorCurrentLimit(Amps.of(120))
                 .withStatorCurrentLimitEnable(true)
+        )
+        .withSlot0(
+            new Slot0Configs()
+                .withKP(0.8)
+                .withKV(0.12)
+        )
+        .withMotionMagic(
+            new MotionMagicConfigs()
+                .withMotionMagicCruiseVelocity(RotationsPerSecond.of(50))
+                .withMotionMagicAcceleration(RotationsPerSecondPerSecond.of(200))
         );
 
     /** Configs for {@link #TopIndex}. */
@@ -113,9 +120,9 @@ public class Intake extends SubsystemBase {
                 .withKA(0)
         );
 
-    public Intake() {
+    public Arm() {
         for (int i = 0; i < kNumConfigAttempts; ++i) {
-            var status = TopIndex.getConfigurator().apply(TopIndexConfigs);
+            var status = arm.getConfigurator().apply(TopIndexConfigs);
             if (status.isOK()) break;
         }
 
@@ -124,10 +131,6 @@ public class Intake extends SubsystemBase {
         setDefaultCommand(coastIntake());
 
         // SmartDashboard.putData("Intake TopIndex", TopIndexMech2d);
-
-        if (Utils.isSimulation()) {
-            startSimThread();
-        }
     }
 
     /**
@@ -144,24 +147,35 @@ public class Intake extends SubsystemBase {
         return TopIndexTorqueCurrent.getValue();
     }
 
-    public Trigger getTriggerWhenNearTarget(AngularVelocity threshold) {
-        return new Trigger(() -> {
-            return TopIndexVelocity.isNear(RotationsPerSecond.of(TopIndexSetpointRequest.Velocity), threshold);
-        });
-    }
-
     /**
      * Drives the flywheel to the provided velocity setpoint.
      *
      * @param setpoint Function returning the setpoint to apply
      * @return Command to run
      */
-    public Command setTarget(Supplier<IntakeSetpoint> target) {
+    public Command setTarget(Supplier<ArmSetpoint> target) {
         return run(() -> {
-            IntakeSetpoint t = target.get();
-            TopIndexSetpointRequest.withVelocity(t.TopIndexTarget);
-            TopIndex.setControl(TopIndexSetpointRequest);            
+            if (isZerod) {
+                ArmSetpoint t = target.get();
+                TopIndexSetpointRequest.withPosition(t.Target);
+                arm.setControl(TopIndexSetpointRequest);   
+            } else {
+                arm.setControl(new CoastOut());
+            }         
         });
+    }
+
+    public Command zeroArm() {
+        TorqueCurrentFOC stallRequest = new TorqueCurrentFOC(-13).withMaxAbsDutyCycle(0.4);
+        return run(()-> {
+            arm.setControl(stallRequest);
+        }).until(new Trigger(()-> {
+            return arm.getVelocity().getValueAsDouble() > -1 && arm.getStatorCurrent().getValueAsDouble() > 8;
+        }).debounce(0.2)).andThen(runOnce(() -> {
+            arm.setPosition(-23);
+            arm.setControl(new CoastOut());
+            isZerod = true;
+        }));
     }
 
     /**
@@ -171,7 +185,7 @@ public class Intake extends SubsystemBase {
      */
     public Command coastIntake() {
         return runOnce(() -> {
-            TopIndex.setControl(coastRequest);
+            arm.setControl(coastRequest);
         });
     }
 
@@ -187,37 +201,7 @@ public class Intake extends SubsystemBase {
             TopIndexVelocity.getValueAsDouble() / 100.0
         );
     }
-
-    private void startSimThread() {
-        TopIndex.getSimState().Orientation = ChassisReference.CounterClockwise_Positive;
-        TopIndex.getSimState().setMotorType(TalonFXSimState.MotorType.KrakenX60);
-
-        lastSimTime = Utils.getCurrentTimeSeconds();
-
-        /* Run simulation at a faster rate so PID gains behave more reasonably */
-        simNotifier = new Notifier(() -> {
-            /* Calculate the time delta */
-            final double currentTime = Utils.getCurrentTimeSeconds();
-            final double deltaTime = currentTime - lastSimTime;
-            lastSimTime = currentTime;
-
-            final var TopIndexSim = TopIndex.getSimState();
-
-            /* First set the supply voltage of all the devices */
-            TopIndexSim.setSupplyVoltage(RobotController.getBatteryVoltage());
-
-            /* Then calculate the new velocity of the simulated flywheel */
-            TopIndexFlywheelSim.setInputVoltage(TopIndexSim.getMotorVoltage());
-            TopIndexFlywheelSim.update(deltaTime);
-
-            /* Apply the new rotor velocity to the motors (before gear ratio) */
-            TopIndexSim.setRawRotorPosition(
-                Radians.of(TopIndexFlywheelSim.getAngularPositionRad() * kGearRatio)
-            );
-            TopIndexSim.setRotorVelocity(
-                RadiansPerSecond.of(TopIndexFlywheelSim.getAngularVelocityRadPerSec() * kGearRatio)
-            );
-        });
-        simNotifier.startPeriodic(kSimLoopPeriod);
+    public void intakeDown() {
+        
     }
 }

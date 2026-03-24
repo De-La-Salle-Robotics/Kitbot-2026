@@ -22,12 +22,14 @@ import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
 import edu.wpi.first.networktables.StructPublisher;
 import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
+import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
 import frc.robot.Robot;
 import frc.robot.vision.LimelightHelpers.LimelightTarget_Fiducial;
 
@@ -125,7 +127,8 @@ public class LimelightVisionSystem {
 
                 /* Process them */
                 var cameraRobotPose = bestTarget.getRobotPose_FieldSpace2D();
-                var hubTarget = currentAlliance == Alliance.Red ? RedHubTarget : BlueHubTarget;
+                /* Limelight always assumes 0,0 is your DS corner, it isn't always blue alliance */
+                var hubTarget = BlueHubTarget;// currentAlliance == Alliance.Red ? RedHubTarget : BlueHubTarget;
                 var targetDelta = hubTarget.minus(cameraRobotPose.getTranslation());
                 if (targetDelta.getX() == 0 && targetDelta.getY() == 0) {
                     /* Don't do anything */
@@ -135,6 +138,9 @@ public class LimelightVisionSystem {
                     // var robotPose = currentRobotPose.get();
                     hubHeading = angleToTarget;
                     hubDistance = targetDelta.getNorm();
+
+                    SmartDashboard.putNumber("Hub Heading", angleToTarget.getDegrees());
+                    SmartDashboard.putNumber("Hub Distance", Units.metersToInches(hubDistance));
                 }
                 // Transform3d tagRelativeToRobot = bestTarget.getTargetPose_RobotSpace().minus(new Pose3d());
                 // var transformToHub = currentAlliance == Alliance.Red ? RedHub.getHubPose((int)bestTarget.fiducialID) :

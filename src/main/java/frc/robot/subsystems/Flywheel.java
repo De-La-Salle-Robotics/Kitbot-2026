@@ -29,6 +29,7 @@ import edu.wpi.first.math.numbers.N2;
 import edu.wpi.first.math.system.LinearSystem;
 import edu.wpi.first.math.system.plant.DCMotor;
 import edu.wpi.first.math.system.plant.LinearSystemId;
+import edu.wpi.first.math.util.Units;
 import edu.wpi.first.units.measure.*;
 import edu.wpi.first.wpilibj.Notifier;
 import edu.wpi.first.wpilibj.RobotController;
@@ -43,8 +44,7 @@ import edu.wpi.first.wpilibj2.command.button.Trigger;
 public class Flywheel extends SubsystemBase {
     /** Velocity setpoints for the flywheel. */
     public enum FlywheelSetpoint {
-        Intake(RotationsPerSecond.of(80)),
-        Outtake(RotationsPerSecond.of(-80)),
+        Intake(RotationsPerSecond.of(-60)), // This also affects our auto-distance table
         Near(RotationsPerSecond.of(44)), // This also affects our auto-distance table
         Mid(RotationsPerSecond.of(51)), // This also affects our auto-distance table
         Far(RotationsPerSecond.of(70)), // This also affects our auto-distance table
@@ -65,8 +65,7 @@ public class Flywheel extends SubsystemBase {
 
     /* leader and follower motors */
     private final CANBus kCANBus = new CANBus("canivore");
-    private final TalonFX leaderMotor = new TalonFX(51, kCANBus);
-    private final TalonFX followMotor = new TalonFX(52, kCANBus);
+    private final TalonFX leaderMotor = new TalonFX(52, kCANBus);
     private final TalonFX followMotor2 = new TalonFX(53, kCANBus);
 
     /* device status signals */
@@ -109,7 +108,7 @@ public class Flywheel extends SubsystemBase {
     private final TalonFXConfiguration leaderMotorConfigs = motorTalonFXInitialConfigs.clone()
         .withMotorOutput(
             motorTalonFXInitialConfigs.MotorOutput.clone()
-                .withInverted(InvertedValue.CounterClockwise_Positive)
+                .withInverted(InvertedValue.Clockwise_Positive)
         )
         .withFeedback(
             motorTalonFXInitialConfigs.Feedback.clone()
@@ -118,7 +117,7 @@ public class Flywheel extends SubsystemBase {
         )
         .withSlot0(
             motorTalonFXInitialConfigs.Slot0.clone()
-                .withKP(25)
+                .withKP(18)
                 .withKI(0)
                 .withKD(0)
                 .withKS(3)
@@ -145,14 +144,11 @@ public class Flywheel extends SubsystemBase {
         for (int i = 0; i < kNumConfigAttempts; ++i) {
             var status = leaderMotor.getConfigurator().apply(leaderMotorConfigs);
             if (status.isOK()) {
-                followMotor.getConfigurator().apply(new TalonFXConfiguration()); 
                 followMotor2.getConfigurator().apply(new TalonFXConfiguration());
                 break;
             }
         }
-
-        followMotor.setControl(new Follower(leaderMotor.getDeviceID(), MotorAlignmentValue.Aligned));
-        followMotor2.setControl(new Follower(leaderMotor.getDeviceID(), MotorAlignmentValue.Aligned));
+        followMotor2.setControl(new Follower(leaderMotor.getDeviceID(), MotorAlignmentValue.Opposed));
 
         /* set the default command to neutral output */
         setDefaultCommand(coastFlywheel());
@@ -200,7 +196,8 @@ public class Flywheel extends SubsystemBase {
 
     public Command setDistance(DoubleSupplier distanceSupplier) {
         return run(() -> {
-            double target = table.get(distanceSupplier.getAsDouble());
+            double target = table.get(Units.metersToInches(distanceSupplier.getAsDouble()));
+            SmartDashboard.putNumber("TargetRPS", target);
             leaderMotorSetpointRequest.withVelocity(target);
             leaderMotor.setControl(leaderMotorSetpointRequest);
         });
