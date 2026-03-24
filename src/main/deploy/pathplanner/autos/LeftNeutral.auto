@@ -23,7 +23,7 @@
               {
                 "type": "named",
                 "data": {
-                  "name": "Shoot Mid"
+                  "name": "Shoot Far"
                 }
               },
               {
@@ -49,6 +49,12 @@
                 "type": "named",
                 "data": {
                   "name": "Shoot"
+                }
+              },
+              {
+                "type": "named",
+                "data": {
+                  "name": "Shoot Far"
                 }
               }
             ]

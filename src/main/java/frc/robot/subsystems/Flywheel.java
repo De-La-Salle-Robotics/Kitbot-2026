@@ -45,7 +45,7 @@ public class Flywheel extends SubsystemBase {
     /** Velocity setpoints for the flywheel. */
     public enum FlywheelSetpoint {
         Intake(RotationsPerSecond.of(-60)),
-        Near(RotationsPerSecond.of(40)), // This also affects our auto-distance table
+        Near(RotationsPerSecond.of(20)), // This also affects our auto-distance table
         Mid(RotationsPerSecond.of(46)), // This also affects our auto-distance table
         AutoNear(RotationsPerSecond.of(45)), // This also affects our auto-distance table
         AutoMid(RotationsPerSecond.of(48.5)), // This also affects our auto-distance table
@@ -55,12 +55,12 @@ public class Flywheel extends SubsystemBase {
         Pass(RotationsPerSecond.of(70)), // This also affects our auto-distance table
         Nothing(RotationsPerSecond.of(0)),
 
-        // // vars for backwards func
-        // backNear(RotationsPerSecond.of(40)), // This also affects our auto-distance table
-        // backMid(RotationsPerSecond.of(46)), // This also affects our auto-distance table
-        // backMidFar(RotationsPerSecond.of(50)), // This also affects our auto-distance table
-        backFar(RotationsPerSecond.of(59)), // This also affects our auto-distance table
-        backFarther(RotationsPerSecond.of(67)); // This also affects our auto-distance table
+        // vars for backwards func
+        backNear(RotationsPerSecond.of(47)), // This also affects our auto-distance table
+        backMid(RotationsPerSecond.of(52)), // This also affects our auto-distance table
+        backMidFar(RotationsPerSecond.of(57)), // This also affects our auto-distance table
+        backFar(RotationsPerSecond.of(61)), // This also affects our auto-distance table
+        backFarther(RotationsPerSecond.of(69)); // This also affects our auto-distance table
 
         /** The velocity target of the setpoint. */
         public final AngularVelocity leaderMotorTarget;
@@ -154,17 +154,6 @@ public class Flywheel extends SubsystemBase {
       //  table.put(, 70.0);
     }};
 
-      private final InterpolatingDoubleTreeMap backTable;
-    {{
-        backTable = new InterpolatingDoubleTreeMap();
-        backTable.put(57.0, FlywheelSetpoint.AutoNear.leaderMotorTarget.in(RotationsPerSecond)); //distance(in) then RPS
-        backTable.put(97.0, FlywheelSetpoint.MidFar.leaderMotorTarget.in(RotationsPerSecond));
-        backTable.put(112.0, FlywheelSetpoint.Far.leaderMotorTarget.in(RotationsPerSecond));
-        backTable.put(132.0, FlywheelSetpoint.backFar.leaderMotorTarget.in(RotationsPerSecond));
-        backTable.put(191.0, FlywheelSetpoint.backFarther.leaderMotorTarget.in(RotationsPerSecond));
-      //  table.put(, 70.0);
-    }};
-
     public Flywheel() {
         for (int i = 0; i < kNumConfigAttempts; ++i) {
             var status = leaderMotor.getConfigurator().apply(leaderMotorConfigs);
@@ -228,14 +217,7 @@ public class Flywheel extends SubsystemBase {
         });
     }
 
-        public Command setDistanceBack(DoubleSupplier distanceSupplier) {
-        return run(() -> {
-            double target = backTable.get(Units.metersToInches(distanceSupplier.getAsDouble()));
-            SmartDashboard.putNumber("TargetRPS", target);
-            leaderMotorSetpointRequest.withVelocity(target);
-            leaderMotor.setControl(leaderMotorSetpointRequest);
-        });
-    }
+        
 
 
     /**

@@ -11,7 +11,7 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 
 public class HubActiveState {
-    private HubActiveState(){}
+    public HubActiveState(){}
 
     static HubActiveState _inst = new HubActiveState();
     public static HubActiveState getInstance(){ return _inst; }
@@ -29,17 +29,28 @@ public class HubActiveState {
     }
     private final TimeSegment[] TeleopHubActiveTimesForAutoWinner = new TimeSegment[] {
         new TimeSegment(0, 55), // Shift 4 combines with End game
-        new TimeSegment((1 * 60) + 20, (1 * 60) + 45), // Shift 2
-        new TimeSegment((2 * 60) + 10, (2 * 60) + 20) // Transition Shift
+        new TimeSegment((1 * 60) + 18, (1 * 60) + 45), // Shift 2
+        new TimeSegment((2 * 60) + 8, (2 * 60) + 20) // Transition Shift
     };
     private final TimeSegment[] TeleopHubActiveTimesForAutoLoser = new TimeSegment[] {
         new TimeSegment(0, 30), // End game
-        new TimeSegment(55, (1 * 60) + 20), // Shift 3
-        new TimeSegment((1 * 60) + 45, (2 * 60) + 20) // Shift 1 combines with transition shift
+        new TimeSegment(53, (1 * 60) + 20), // Shift 3
+        new TimeSegment((1 * 60) + 43, (2 * 60) + 20) // Shift 1 combines with transition shift
     };
+    // unchanged values:
+    //  private final TimeSegment[] TeleopHubActiveTimesForAutoWinner = new TimeSegment[] {
+    //     new TimeSegment(0, 55), // Shift 4 combines with End game
+    //     new TimeSegment((1 * 60) + 20, (1 * 60) + 45), // Shift 2
+    //     new TimeSegment((2 * 60) + 10, (2 * 60) + 20) // Transition Shift
+    // };
+    // private final TimeSegment[] TeleopHubActiveTimesForAutoLoser = new TimeSegment[] {
+    //     new TimeSegment(0, 30), // End game
+    //     new TimeSegment(55, (1 * 60) + 20), // Shift 3
+    //     new TimeSegment((1 * 60) + 45, (2 * 60) + 20) // Shift 1 combines with transition shift
+    // };
 
     /* True when our hub is active */
-    private boolean isHubActive = false;
+    public boolean isHubActive = false;
     private double timeUntilTransition = 0;
     
     /* What to publish over networktables for telemetry */

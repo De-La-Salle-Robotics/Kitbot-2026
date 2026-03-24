@@ -22,6 +22,7 @@ import edu.wpi.first.math.geometry.Transform2d;
 import edu.wpi.first.math.geometry.Transform3d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.geometry.Translation3d;
+import edu.wpi.first.math.kinematics.ChassisSpeeds;
 import edu.wpi.first.math.util.Units;
 import edu.wpi.first.networktables.NetworkTable;
 import edu.wpi.first.networktables.NetworkTableInstance;
@@ -30,7 +31,11 @@ import edu.wpi.first.wpilibj.DriverStation;
 import edu.wpi.first.wpilibj.DriverStation.Alliance;
 import edu.wpi.first.wpilibj.smartdashboard.Field2d;
 import edu.wpi.first.wpilibj.smartdashboard.SmartDashboard;
+import edu.wpi.first.wpilibj2.command.Command;
 import frc.robot.Robot;
+import frc.robot.SwerveUtils;
+import frc.robot.generated.TunerConstants;
+import frc.robot.subsystems.CommandSwerveDrivetrain;
 import frc.robot.vision.LimelightHelpers.LimelightTarget_Fiducial;
 
 public class LimelightVisionSystem {
@@ -54,6 +59,10 @@ public class LimelightVisionSystem {
 
     private final Translation2d BlueHubTarget = new Translation2d(4.6256194, 4.0346376);
     private final Translation2d RedHubTarget = new Translation2d(11.915419, 4.0346376);
+    // private final Translation2d RedLeftCorner = new Translation2d(11.915419, 4.0346376); //make real values
+    // private final Translation2d RedRightCorner = new Translation2d(11.915419, 4.0346376);
+    // private final Translation2d BlueRightCorner = new Translation2d(11.915419, 4.0346376);
+    // private final Translation2d BlueLeftCorner = new Translation2d(11.915419, 4.0346376);
 
     private final ApriltagTarget BlueHub = new ApriltagTarget(Map.of(
         18, new Translation3d(Inches.of(-23.5), Inches.of(0), Inches.of(33)),
@@ -73,6 +82,8 @@ public class LimelightVisionSystem {
     
     /* Use the current robot heading to keep track of where to target when aiming for the hub */
     Supplier<Pose2d> currentRobotPose;
+    Supplier<ChassisSpeeds> currentRobotSpeed;
+    Supplier<Rotation2d> currentRobotHeading;
 
     Consumer<LoggableRobotPose> poseConsumer;
 
@@ -81,15 +92,20 @@ public class LimelightVisionSystem {
     Pose3d hubTarget = Pose3d.kZero;
     Rotation2d hubHeading = Rotation2d.kZero;
     double hubDistance = 0;
+    Alliance currentAlliance = DriverStation.getAlliance().orElse(Alliance.Red);
+    public double robotY = 0;
 
     private final NetworkTable cameraTable = NetworkTableInstance.getDefault().getTable("CameraDetails");
     private final StructPublisher<Pose3d> hubTargetPublisher = cameraTable.getStructTopic("HubTarget", Pose3d.struct).publish();
     private final StructPublisher<Rotation2d> hubHeadingPublisher = cameraTable.getStructTopic("HubHeading", Rotation2d.struct).publish();
     private final SwerveRequest.FieldCentricFacingAngle targetHub = new SwerveRequest.FieldCentricFacingAngle();
     
-    public LimelightVisionSystem(Consumer<LoggableRobotPose> poseConsumer, Supplier<Pose2d> currentRobotPose) {
+    public LimelightVisionSystem(Consumer<LoggableRobotPose> poseConsumer, Supplier<Pose2d> currentRobotPose, 
+                                 Supplier<ChassisSpeeds> currentRobotSpeed, Supplier<Rotation2d> currentRobotHeading) {
         this.poseConsumer = poseConsumer;
         this.currentRobotPose = currentRobotPose;
+        this.currentRobotSpeed = currentRobotSpeed;
+        this.currentRobotHeading = currentRobotHeading;
     }
 
     public void periodic() {
@@ -128,13 +144,29 @@ public class LimelightVisionSystem {
                 /* Process them */
                 var cameraRobotPose = results.getBotPose2d_wpiBlue();
                 /* Limelight always assumes 0,0 is your DS corner, it isn't always blue alliance */
+
                 var hubTarget = currentAlliance == Alliance.Red ? RedHubTarget : BlueHubTarget;
+                Pose2d robotPos = currentRobotPose.get();
+                ChassisSpeeds robotSpeeds = currentRobotSpeed.get();
+                Rotation2d robotHeading = currentRobotHeading.get();
+
+                Translation2d robotTarget = hubTarget;
+                for(int i = 0; i < 5; ++i) {
+                    double timeOfFlightToTarget = SwerveUtils.timeOfFlight(robotPos, robotTarget);
+                    robotTarget = SwerveUtils.getShiftedHubPose(robotSpeeds, robotHeading, timeOfFlightToTarget, robotTarget);
+                }
+
+                if (false) {
+                    /* Set this to true to enable shoot on the move */
+                    hubTarget = robotTarget;
+                }
+
                 var targetDelta = hubTarget.minus(cameraRobotPose.getTranslation());
                 if (targetDelta.getX() == 0 && targetDelta.getY() == 0) {
                     /* Don't do anything */
                 }
                 else {
-                    var angleToTarget = targetDelta.getAngle();
+                    var angleToTarget = targetDelta.getAngle().rotateBy(DriverStation.getAlliance().orElse(Alliance.Red) == Alliance.Red ? Rotation2d.kZero : Rotation2d.k180deg);
                     // var robotPose = currentRobotPose.get();
                     hubHeading = angleToTarget;
                     hubDistance = targetDelta.getNorm();
@@ -155,6 +187,7 @@ public class LimelightVisionSystem {
                 poseConsumer.accept(new LoggableRobotPose(robotPose, results.timestamp_RIOFPGA_capture));
             }
         }
+        robotY = currentRobotPose.get().getY();
 
         hubTargetPublisher.accept(hubTarget);
         hubHeadingPublisher.accept(hubHeading);
@@ -180,4 +213,19 @@ public class LimelightVisionSystem {
     public double getHubDistance() {
         return hubDistance;
     }
+    // public Command PassToCorners() {
+    //     if(currentAlliance == Alliance.Red){
+    //         if (robotY > 4.0346376) {
+    //             hubTarget = RedLeftCorner;
+    //         } else{
+    //             hubTarget = RedRightCorner;
+    //         }
+    //     } else if (currentAlliance == Alliance.Blue) {
+    //         if (robotY > 4.0346376) {
+    //             hubTarget = BlueRightCorner;
+    //         } else{
+    //             hubTarget = BlueLeftCorner;
+    //         }
+    //     }
+    // }
 }

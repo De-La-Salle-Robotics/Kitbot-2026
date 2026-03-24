@@ -13,11 +13,13 @@ import com.ctre.phoenix6.swerve.SwerveRequest;
 
 import com.pathplanner.lib.auto.AutoBuilder;
 import com.pathplanner.lib.auto.NamedCommands;
+import com.pathplanner.lib.auto.AutoBuilder.TriFunction;
 import com.pathplanner.lib.commands.FollowPathCommand;
 import com.pathplanner.lib.path.EventMarker;
 
 import edu.wpi.first.units.measure.AngularVelocity;
 import edu.wpi.first.math.Matrix;
+import edu.wpi.first.math.geometry.Rotation2d;
 import edu.wpi.first.math.geometry.Translation2d;
 import edu.wpi.first.math.interpolation.InterpolatingDoubleTreeMap;
 import edu.wpi.first.math.numbers.N1;
@@ -45,8 +47,12 @@ import frc.robot.subsystems.Intake.IntakeSetpoint;
 import frc.robot.vision.LimelightHelpers;
 import frc.robot.vision.LimelightVisionSystem;
 import frc.robot.vision.LoggableRobotPose;
+import edu.wpi.first.wpilibj.DriverStation;
+import edu.wpi.first.wpilibj.DriverStation.Alliance;
+import frc.robot.utils.HubActiveState;
 //import frc.robot.vision.Commands.*;
 //import frc.robot.vision.AutoAlign;
+
 
 public class RobotContainer {
     private double MaxSpeed = 1.0 * TunerConstants.kSpeedAt12Volts.in(MetersPerSecond); // kSpeedAt12Volts desired top speed
@@ -72,15 +78,31 @@ public class RobotContainer {
     private final CommandXboxController joystick2 = new CommandXboxController(1);
     public final CommandSwerveDrivetrain drivetrain = TunerConstants.createDrivetrain();
     public final Flywheel flywheel = new Flywheel();
+    public final HubActiveState myHub = new HubActiveState();
     public final Intake intake = new Intake();
     // public final Climb climb = new Climb();
     public final OverBumper overBumper = new OverBumper();
-    public final LimelightVisionSystem vision = new LimelightVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose);
+    public final LimelightVisionSystem vision = new LimelightVisionSystem(this::consumePhotonVisionMeasurement, () -> drivetrain.getState().Pose, () -> drivetrain.getState().Speeds, () -> drivetrain.getState().RawHeading);
     //public final 
 
     private final AngularVelocity SpinUpThreshold = RotationsPerSecond.of(3); // Tune to increase accuracy while not sacrificing throughput
     /* The flywheel is ready to shoot when it's near the target or when the driver overrides it with the X button */
     private final Trigger isFlywheelReadyToShoot = flywheel.getTriggerWhenNearTarget(SpinUpThreshold).or(joystick.x());
+
+    public boolean readyToShoot = false;
+
+    Timer matchTimer = new Timer();
+
+    
+
+    private final Translation2d BlueHubTarget = new Translation2d(4.6256194, 4.0346376);
+    private final Translation2d RedHubTarget = new Translation2d(11.915419, 4.0346376);
+
+    private Translation2d getHubTarget() {
+        Alliance currentAlliance = DriverStation.getAlliance().orElse(Alliance.Red);
+        return (currentAlliance == Alliance.Red)? RedHubTarget : BlueHubTarget;
+    }
+    
 
     Trigger downButton = new Trigger(
         () ->  joystick.getHID().getPOV() == 180 && joystick.getHID().getPOV() != 270 && joystick.getHID().getPOV() != 90
@@ -97,8 +119,10 @@ public class RobotContainer {
     Trigger abxy = new Trigger(
         () -> joystick2.getHID().getAButton() || joystick2.getHID().getBButton() || joystick2.getHID().getXButton() || joystick2.getHID().getYButton()
     );
+    
 
-    Command alignToHubCommand = drivetrain.applyRequest(()-> {
+    Command getAlignToHubCommand() {
+        return drivetrain.applyRequest(()-> {
             if (!vision.isHubTargetValid()) {
                 /* Do typical field-centric driving since we don't have a target */
                 return drive.withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
@@ -111,6 +135,9 @@ public class RobotContainer {
                     .withVelocityY(-joystick.getLeftX() * MaxSpeed); // Drive left with negative X (left) 
             }
         });
+    }
+
+    public boolean align = false;
 
     Timer jiggleTimer = new Timer();
     private double JigglePower = 0.2;
@@ -129,9 +156,9 @@ public class RobotContainer {
     Command jiggleCommand = drivetrain.applyRequest(() -> {
             jiggleTimer.start();
             if(jiggleTimer.get() < 0.1) {
-                return forwardStraight.withVelocityX(MaxSpeed * 0.05);
+                return forwardStraight.withVelocityX(MaxSpeed * JigglePower);
             } else if (jiggleTimer.get() < 0.2) {
-                return forwardStraight.withVelocityX(MaxSpeed * -0.05);
+                return forwardStraight.withVelocityX(MaxSpeed * -JigglePower);
             } else {
                 jiggleTimer.reset();
                 return forwardStraight.withVelocityX(0);
@@ -155,8 +182,9 @@ public class RobotContainer {
         // NamedCommands.registerCommand("Go to Pos", camera.setGoal(() -> ShootPoints.Middle).andThen(AutoAlign(() -> )));
         // NamedCommands.registerCommand("Climb", climb.climb());
         // NamedCommands.registerCommand("UnClimb", climb.unclimb());
-        NamedCommands.registerCommand("Align", alignToHubCommand);
-        NamedCommands.registerCommand("Shoot", Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(() ->IntakeSetpoint.FeedToShoot)).alongWith(jiggleCommandAuto));
+        NamedCommands.registerCommand("Align", getAlignToHubCommand());
+        NamedCommands.registerCommand("Shoot", Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(() ->IntakeSetpoint.FeedToShoot)));
+        NamedCommands.registerCommand("Jiggle", jiggleCommandAuto);
 
 
         autoChooser = AutoBuilder.buildAutoChooser("Only Score");
@@ -168,25 +196,107 @@ public class RobotContainer {
         CommandScheduler.getInstance().schedule(FollowPathCommand.warmupCommand());
     }
 
+    private boolean inShootingZone() {
+        Alliance currentAlliance = DriverStation.getAlliance().orElse(Alliance.Red);
+        return (robotX < 4.03 && currentAlliance == Alliance.Red) ||
+                (robotX > 12.51) && (currentAlliance == Alliance.Blue);
+    }
+    double robotX = 0.0;
+    public void shootOrNot(){
+        robotX = drivetrain.getState().Pose.getX();
+        if (joystick.rightTrigger().getAsBoolean() == true && isFlywheelReadyToShoot.getAsBoolean() == true && 
+           inShootingZone() && 
+           myHub.isHubActive == true && 
+           0.0872665 > Math.abs(drivetrain.getRotation3d().getAngle() - vision.getHeadingToHubFieldRelative().getRadians())) { // figure out how to add ifaligned cory
+            readyToShoot = true;
+            intake.setTarget(()->IntakeSetpoint.FeedToShoot);
+        }else if(joystick.leftTrigger().getAsBoolean() == true) {
+            readyToShoot = false;
+            intake.setTarget(()->IntakeSetpoint.FeedToShoot);
+        }{
+            readyToShoot = false;
+            intake.setTarget(()->IntakeSetpoint.Stop);
+        }
+    }
+
+    public boolean previouslyInShootingZone = false;
+    public SwerveRequest passiveAlign() {
+        /* We're in the shooting zone if we're in our part of the field */
+        boolean currentlyInShootingZone = inShootingZone();
+        /* If we are now in the shooting zone and were not last loop we just entered */
+        boolean justEnteredShootingZone = currentlyInShootingZone && !previouslyInShootingZone;
+        /* Same but in reverse */
+        boolean justLeftShootingZone = !currentlyInShootingZone && previouslyInShootingZone;
+        /* Never use previouslyInShootingZone again, so assign it here */
+        previouslyInShootingZone = currentlyInShootingZone;
+
+        /* If we just entered the shooting zone, automatically toggle the align to true */
+        if (justEnteredShootingZone){
+            align = true;
+        }
+        /* If we just left the shooting zone, automatically turn the align to false */
+        if (justLeftShootingZone){
+            align = false;
+        }
+        /* If the driver pressed the right bumper, automatically turn off auto align */
+        if (joystick.getHID().getRawButtonPressed(6) == true) {
+            align = false;
+        }
+        /* If the driver released the right bumper while we're inside the shooting zone, turn on auto align */
+        if (joystick.getHID().getRawButtonReleased(6) == true && currentlyInShootingZone) {
+            align = true;
+        }
+        if (-0.1 > joystick.getRightX() || joystick.getRightX() > 0.1 ) {
+            align = false;
+        }
+        if (align == true && vision.isHubTargetValid()) {
+            return targetHub.withTargetDirection(vision.getHeadingToHubFieldRelative())
+            .withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
+            .withVelocityY(-joystick.getLeftX() * MaxSpeed);
+            
+        } else if (align == true) {
+            double curX = drivetrain.getState().Pose.getX();
+            double curY = drivetrain.getState().Pose.getY();
+            Translation2d curHub = getHubTarget();
+            double newX = curHub.getX() - curX;
+            double newY = Math.abs(curHub.getY() - curY);
+            double turnAngle = Math.atan2(newY, newX);
+            return targetHub.withTargetDirection(Rotation2d.fromRadians(turnAngle))
+            .withVelocityX(-joystick.getLeftY() * MaxSpeed) // Drive forward with negative Y (forward)
+            .withVelocityY(-joystick.getLeftX() * MaxSpeed);
+        }else {
+            Translation2d requestedVelocity = new Translation2d(
+                -joystick.getLeftY() * MaxSpeed, // Drive forward with negative Y (forward)
+                -joystick.getLeftX() * MaxSpeed // Drive left with negative X (left)
+            );
+
+            requestedVelocity = SwerveUtils.driverDivot(requestedVelocity, drivetrain.getState().Pose.getRotation());
+            return drive.withVelocityX(requestedVelocity.getY())
+            .withVelocityY(requestedVelocity.getX())
+            .withRotationalRate(-joystick.getRightX() * MaxAngularRate);
+        }
+    }
+
     private void configureBindings() {
         // Note that X is defined as forward according to WPILib convention,
         // and Y is defined as to the left according to WPILib convention.
-        drivetrain.setDefaultCommand(
-            // Drivetrain will execute this command periodically
-            drivetrain.applyRequest(() -> {
-                Translation2d requestedVelocity = new Translation2d(
-                    -joystick.getLeftY() * MaxSpeed, // Drive forward with negative Y (forward)
-                    -joystick.getLeftX() * MaxSpeed // Drive left with negative X (left)
-                );
+        // drivetrain.setDefaultCommand(
+        //     // Drivetrain will execute this command periodically
+        //     drivetrain.applyRequest(() -> {
+        //         Translation2d requestedVelocity = new Translation2d(
+        //             -joystick.getLeftY() * MaxSpeed, // Drive forward with negative Y (forward)
+        //             -joystick.getLeftX() * MaxSpeed // Drive left with negative X (left)
+        //         );
 
-                requestedVelocity = SwerveUtils.driverDivot(requestedVelocity, drivetrain.getState().Pose.getRotation());
+        //         requestedVelocity = SwerveUtils.driverDivot(requestedVelocity, drivetrain.getState().Pose.getRotation());
 
-                return drive.withVelocityX(requestedVelocity.getX())
-                    .withVelocityY(requestedVelocity.getY())
-                     .withRotationalRate(-joystick.getRightX() * MaxAngularRate); // Drive counterclockwise with negative X (left) 
-            }
-            )
-        );
+        //         return drive.withVelocityX(requestedVelocity.getX())
+        //             .withVelocityY(requestedVelocity.getY())
+        //              .withRotationalRate(-joystick.getRightX() * MaxAngularRate); // Drive counterclockwise with negative X (left) 
+        //     }
+        //     )
+        // );
+        drivetrain.setDefaultCommand(drivetrain.applyRequest(this::passiveAlign));
 
         // climb.setDefaultCommand(climb.run(()-> {
         //     double climbY = joystick2.getLeftY();
@@ -205,7 +315,8 @@ public class RobotContainer {
         );
 
         joystick.a().whileTrue(drivetrain.applyRequest(() -> brake));
-        joystick.rightBumper().whileTrue(alignToHubCommand.alongWith(
+        // joystick2.a().whileTrue(drivetrain.applyRequest(() -> brake));
+        joystick.rightBumper().toggleOnTrue(getAlignToHubCommand().alongWith(
             flywheel.coastFlywheel()
             // flywheel.setDistance(() -> {
             //     return SwerveUtils.findDistanceToTarget(drivetrain.getState().Pose);
@@ -291,28 +402,29 @@ public class RobotContainer {
         })
        );
 
-       joystick2.leftTrigger().whileTrue(jiggleCommand);
-    //    abxy.negate().and(joystick.rightTrigger()).and(joystick.povDown()).whileTrue(
-    //     flywheel.setDistanceBack(vision::getHubDistance)
+     
+    //    abxy.negate().and(joystick.rightTrigger()).whileTrue(
+    //     flywheel.setDistance(vision::getHubDistance)
     //    );
-       abxy.negate().and(joystick.rightTrigger())/*.and(joystick.povDown().negate())*/.whileTrue(
-        flywheel.setDistance(vision::getHubDistance)
-       );
+        abxy.negate().and(joystick2.rightTrigger()).whileTrue(
+            flywheel.setDistance(vision::getHubDistance)
+        );
 
        
         
        joystick.rightTrigger().whileTrue(
-        Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot))
+        
+        Commands.waitUntil(isFlywheelReadyToShoot).alongWith(getAlignToHubCommand()) //.andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot))
        );
         // Bind right bumper/trigger to prep flywheeel(operator)
          joystick2.rightBumper().toggleOnTrue(
             flywheel.setTarget(()->FlywheelSetpoint.Near) //spin up the flywheel
            // .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
         );
-        joystick2.rightTrigger().toggleOnTrue(
-            flywheel.setTarget(()->FlywheelSetpoint.Far) // spin up the flywheel
-          //  .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
-        );
+        // joystick2.rightTrigger().toggleOnTrue(
+        //     flywheel.setTarget(()->FlywheelSetpoint.Far) // spin up the flywheel
+        //   //  .alongWith(Commands.waitUntil(isFlywheelReadyToShoot).andThen(intake.setTarget(()->IntakeSetpoint.FeedToShoot)))
+        // );
         
         // make x + y button change speed
         joystick.y().whileTrue(
@@ -325,6 +437,16 @@ public class RobotContainer {
                 
             })
         );
+        // if (!inShootingZone()) {
+        //     joystick2.leftBumper().whileTrue(
+        //         vision.PassToCorners().alongWith(getAlignToHubCommand())
+        //         alignToHubCommand
+        //     );
+        // }
+        
+        // joystick.x().onTrue(
+
+        // );
         joystick.leftBumper().onTrue(
             Commands.runOnce(()->{
                    MaxSpeed = 2.5; 
@@ -355,7 +477,8 @@ public class RobotContainer {
 
     public void periodic() {
         vision.periodic();
-
+       shootOrNot();
+        
         // SmartDashboard.putNumber("Max Speed", MaxSpeed);
     }
 

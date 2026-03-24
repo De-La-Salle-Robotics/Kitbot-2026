@@ -42,7 +42,8 @@ public class Intake extends SubsystemBase {
     public enum IntakeSetpoint {
         Intake(RotationsPerSecond.of(80), RotationsPerSecond.of(80)),
         Outtake(RotationsPerSecond.of(-70), RotationsPerSecond.of(-80)),
-        FeedToShoot(RotationsPerSecond.of(-90), RotationsPerSecond.of(80));
+        FeedToShoot(RotationsPerSecond.of(-90), RotationsPerSecond.of(80)),
+        Stop(RotationsPerSecond.of(0), RotationsPerSecond.of(0));
 
         /** The velocity target of the setpoint. */
         public final AngularVelocity TopIndexTarget;
