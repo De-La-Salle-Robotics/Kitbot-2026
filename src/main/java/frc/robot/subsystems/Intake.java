@@ -105,7 +105,7 @@ public class Intake extends SubsystemBase {
         )
         .withSlot0(
             motorTalonFXInitialConfigs.Slot0.clone()
-                .withKP(0.8)
+                .withKP(0.5)
                 .withKI(0)
                 .withKD(0)
                 .withKS(0)

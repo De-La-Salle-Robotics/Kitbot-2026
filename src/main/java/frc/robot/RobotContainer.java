@@ -274,7 +274,7 @@ public class RobotContainer {
 
         
        joystick.rightTrigger().whileTrue(
-        Commands.waitUntil(isFlywheelReadyToShoot).alongWith(arm.setTarget(() -> ArmSetpoint.Intake)).andThen(indexer.feedToShoot())
+        Commands.waitUntil(isFlywheelReadyToShoot).andThen(indexer.feedToShoot())
        );
         // Bind right bumper/trigger to prep flywheeel(operator)
          joystick2.rightBumper().toggleOnTrue(
